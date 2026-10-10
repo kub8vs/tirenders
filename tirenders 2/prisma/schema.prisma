@@ -1,0 +1,113 @@
+// SQLite lokalnie. Na produkcji zmień provider na "postgresql" i ustaw DATABASE_URL.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String?
+  phone        String?
+  passwordHash String?
+  role         String    @default("CUSTOMER") // CUSTOMER | STAFF | ACCOUNTING | OWNER
+  locale       String    @default("pl")
+  createdAt    DateTime  @default(now())
+  bookings     Booking[]
+}
+
+model MagicToken {
+  token     String   @id
+  email     String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+}
+
+model Simulator {
+  id          String    @id
+  name        String
+  priceGroup  String // STANDARD | GT3 | MOTION5 | MOTION6
+  status      String    @default("ACTIVE") // ACTIVE | COMING_SOON | OUT_OF_SERVICE
+  sortOrder   Int       @default(0)
+  bookings    Booking[]
+}
+
+model Booking {
+  id              String    @id @default(cuid())
+  code            String    @unique
+  simulatorId     String
+  simulator       Simulator @relation(fields: [simulatorId], references: [id])
+  userId          String?
+  user            User?     @relation(fields: [userId], references: [id])
+  name            String
+  email           String
+  phone           String
+  start           DateTime
+  end             DateTime
+  durationMin     Int
+  priceGross      Int // grosze, po rabacie
+  listPriceGross  Int
+  discountCode    String?
+  discountAmount  Int       @default(0)
+  status          String    @default("PENDING") // PENDING | PAID | CANCELLED | REFUNDED | EXPIRED | COMPLETED | NO_SHOW
+  holdExpiresAt   DateTime?
+  paymentProvider String?
+  paymentRef      String?
+  paymentMethod   String?
+  paidAt          DateTime?
+  checkedInAt     DateTime?
+  cancelledAt     DateTime?
+  refundAmount    Int       @default(0)
+  source          String    @default("ONLINE") // ONLINE | ADMIN
+  note            String?
+  locale          String    @default("pl")
+  remind24At      DateTime?
+  remind10At      DateTime?
+  reviewAt        DateTime?
+  createdAt       DateTime  @default(now())
+
+  @@index([simulatorId, start])
+  @@index([status])
+  @@index([email])
+}
+
+model DiscountCode {
+  code      String    @id
+  percent   Int?
+  amountOff Int? // grosze
+  validFrom DateTime?
+  validTo   DateTime?
+  maxUses   Int?
+  uses      Int       @default(0)
+  active    Boolean   @default(true)
+  createdAt DateTime  @default(now())
+}
+
+// Sprzedaż stacjonarna (merch Himery, kierownice) wpisywana przez obsługę – trafia do raportów.
+model Sale {
+  id        String   @id @default(cuid())
+  product   String
+  category  String // MERCH | WHEEL | OTHER
+  qty       Int      @default(1)
+  amount    Int // grosze brutto
+  method    String // CASH | CARD | BLIK
+  createdBy String?
+  createdAt DateTime @default(now())
+}
+
+model NotificationLog {
+  id        String   @id @default(cuid())
+  channel   String // EMAIL | SMS
+  to        String
+  subject   String?
+  body      String
+  status    String // SENT | DEV | FAILED
+  error     String?
+  bookingId String?
+  createdAt DateTime @default(now())
+}
