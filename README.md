@@ -29,4 +29,4 @@ wiadomości widać w panelu w zakładce „Powiadomienia”.
 1. Postgres (np. Neon/Supabase): zmień `provider` w `prisma/schema.prisma` na `postgresql`, ustaw `DATABASE_URL`.
 2. Zmienne z `.env.example` w ustawieniach projektu.
 3. Stripe: webhook na `https://DOMENA/api/stripe/webhook` (zdarzenia `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.expired`); włącz BLIK i Przelewy24 w panelu Stripe.
-4. Crony z `vercel.json`: `/api/cron/tick` co minutę wymaga planu Pro (na Hobby użyj zewnętrznego pingu z nagłówkiem `Authorization: Bearer CRON_SECRET`).
+4. `vercel.json` uruchamia raport dzienny (`/api/cron/daily`). Przypomnienia i wygaszanie płatności (`/api/cron/tick`) muszą działać co minutę: na planie Hobby ustaw darmowy ping, np. cron-job.org, na `https://DOMENA/api/cron/tick` z nagłówkiem `Authorization: Bearer CRON_SECRET`.
