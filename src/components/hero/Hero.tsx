@@ -1,7 +1,7 @@
 "use client";
 
 import gsap from "gsap";
-import Link from "next/link";
+import Cta from "@/components/Cta";
 import { useEffect, useRef, useState } from "react";
 import type { Dict } from "@/content/dict";
 import { COCKPIT, cockpitBox } from "./cockpit";
@@ -202,9 +202,9 @@ export default function Hero({ t }: { t: Dict["hero"] }) {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img className="hero-logo" src="/img/tirenders-logo.webp" alt="Tirenders" width={1400} height={796} />
           <p className="tagline">{t.tagline}</p>
-          <Link href="/rezerwacja" className="hero-cta btn-white magnetic">
+          <Cta href="/rezerwacja" big className="hero-cta">
             {t.cta}
-          </Link>
+          </Cta>
         </div>
 
         {gl && !revealed && (

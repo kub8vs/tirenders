@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import Cta from "@/components/Cta";
+import Rich from "@/components/Rich";
 import { BOOKING, SITE } from "@/config/site";
 
 const T = {
   pl: {
     payTitle: "Płacisz tylko za jazdę",
-    payLead: "Stoper rusza, gdy wyjeżdżasz z alei serwisowej. Wszystko przed tym jest gratis.",
+    payLead: "Stoper rusza dopiero, gdy wyjeżdżasz z boksu. *Wszystko przed startem jest gratis.*",
     free: [
       ["Ustawienie fotela i pedałów", "0 zł"],
       ["Briefing: gdzie hamować", "0 zł"],
@@ -24,13 +26,13 @@ const T = {
     hold: "Tyle trzymamy Twój termin, zanim wróci do puli",
     min: "min",
     groupTitle: "Dłużej niż 90 minut albo cały salon?",
-    groupLead: "Urodziny, event firmowy, liga znajomych. Wszystkie stanowiska na wyłączność. Ustalamy telefonicznie.",
+    groupLead: "Urodziny, firma, liga znajomych. *Cały salon dla Was.* Ustalamy telefonicznie.",
     groupCta: "Zadzwoń",
     soon: "Numer telefonu wkrótce",
   },
   en: {
     payTitle: "You only pay for driving",
-    payLead: "The stopwatch starts when you leave the pit lane. Everything before that is free.",
+    payLead: "The stopwatch only starts when you leave the pits. *Everything before the start is free.*",
     free: [
       ["Seat and pedal setup", "0 zł"],
       ["Briefing: where to brake", "0 zł"],
@@ -48,7 +50,7 @@ const T = {
     hold: "How long we hold your slot before it goes back to the pool",
     min: "min",
     groupTitle: "Longer than 90 minutes or the whole venue?",
-    groupLead: "Birthdays, company events, a league with friends. All rigs to yourselves. Arranged by phone.",
+    groupLead: "Birthdays, company events, a league with friends. *The whole venue is yours.* Arranged by phone.",
     groupCta: "Call us",
     soon: "Phone number coming soon",
   },
@@ -90,7 +92,9 @@ export default function PricingInfo({ lang }: { lang: "pl" | "en" }) {
         </div>
         <div className="pi-text">
           <h2>{t.payTitle}</h2>
-          <p>{t.payLead}</p>
+          <p>
+            <Rich text={t.payLead} />
+          </p>
           <ul className="free-list">
             {t.free.map(([a, b]) => (
               <li key={a}>
@@ -164,14 +168,16 @@ export default function PricingInfo({ lang }: { lang: "pl" | "en" }) {
       <section className="pi-card pi-group pi-anim">
         <div className="pi-text">
           <h2>{t.groupTitle}</h2>
-          <p>{t.groupLead}</p>
+          <p>
+            <Rich text={t.groupLead} />
+          </p>
         </div>
         <div className="group-cta">
           <b>{SITE.phone ?? t.soon}</b>
           {SITE.phone && (
-            <a className="btn-white magnetic" href={`tel:${SITE.phone.replace(/\s/g, "")}`}>
+            <Cta external href={`tel:${SITE.phone.replace(/\s/g, "")}`}>
               {t.groupCta}
-            </a>
+            </Cta>
           )}
         </div>
       </section>

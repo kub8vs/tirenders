@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Cta from "@/components/Cta";
 import Manifesto from "@/components/Manifesto";
 import Marquee from "@/components/Marquee";
 import Split from "@/components/Split";
@@ -89,9 +89,7 @@ export default function Page() {
             {SITE.address ?? tr(l, { pl: "Warszawa. Dokładny adres ogłosimy przed otwarciem.", en: "Warsaw. Exact address announced before opening." })}
           </p>
           <div style={{ marginTop: 30 }} data-reveal>
-            <Link href="/rezerwacja" className="btn-white magnetic">
-              {tr(l, { pl: "Zarezerwuj już teraz", en: "Book now" })}
-            </Link>
+            <Cta href="/rezerwacja">{tr(l, { pl: "Zarezerwuj już teraz", en: "Book now" })}</Cta>
           </div>
         </div>
       </section>

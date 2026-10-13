@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Cta from "@/components/Cta";
 import Hero from "@/components/hero/Hero";
 import ColorGallery from "@/components/home/ColorGallery";
 import HowTrack from "@/components/home/HowTrack";
@@ -7,6 +7,7 @@ import SectorStrip from "@/components/home/SectorStrip";
 import Manifesto from "@/components/Manifesto";
 import Marquee from "@/components/Marquee";
 import PriceTable from "@/components/PriceTable";
+import Rich from "@/components/Rich";
 import Split from "@/components/Split";
 import { getDict, getLang, tr } from "@/lib/i18n";
 
@@ -27,7 +28,7 @@ export default function Home() {
             </p>
             <Manifesto text={h.manifesto} />
             <p className="manifesto-body" data-reveal>
-              {h.manifestoBody}
+              <Rich text={h.manifestoBody} />
             </p>
           </div>
         </div>
@@ -40,7 +41,9 @@ export default function Home() {
           <div className="sec-head">
             <p className="eyebrow" data-reveal>{h.rigsEyebrow}</p>
             <Split text={h.rigsTitle} className="sec-title" />
-            <p className="sec-lead" data-reveal>{h.rigsLead}</p>
+            <p className="sec-lead" data-reveal>
+              <Rich text={h.rigsLead} />
+            </p>
           </div>
           <RigCards lang={l} soon={h.soon} from={h.from} />
         </div>
@@ -66,9 +69,9 @@ export default function Home() {
             <PriceTable lang={l} />
           </div>
           <div style={{ marginTop: 36 }} data-reveal>
-            <Link href="/cennik" className="btn-ghost magnetic">
-              {h.pricingCta} →
-            </Link>
+            <Cta href="/cennik" ghost>
+              {h.pricingCta}
+            </Cta>
           </div>
         </div>
       </section>
@@ -88,11 +91,11 @@ export default function Home() {
           <div className="sec-head" style={{ marginBottom: 0 }}>
             <p className="eyebrow" data-reveal>{h.shopEyebrow}</p>
             <Split text={h.shopTitle} className="sec-title" />
-            <p className="sec-lead" data-reveal>{h.shopLead}</p>
+            <p className="sec-lead" data-reveal>
+              <Rich text={h.shopLead} />
+            </p>
             <div data-reveal>
-              <Link href="/sklep" className="btn-white magnetic">
-                {h.shopCta}
-              </Link>
+              <Cta href="/sklep">{h.shopCta}</Cta>
             </div>
           </div>
           <div className="shop-pair">
@@ -109,10 +112,14 @@ export default function Home() {
       <section className="section final">
         <div className="wrap" style={{ display: "grid", justifyItems: "center", gap: 26 }}>
           <Split text={h.finalTitle} />
-          <p data-reveal>{h.finalLead}</p>
-          <Link href="/rezerwacja" className="btn-white magnetic" data-reveal style={{ height: 64, padding: "0 56px" }}>
-            {d.hero.cta}
-          </Link>
+          <p data-reveal>
+            <Rich text={h.finalLead} />
+          </p>
+          <div data-reveal>
+            <Cta href="/rezerwacja" big>
+              {d.hero.cta}
+            </Cta>
+          </div>
         </div>
       </section>
     </>

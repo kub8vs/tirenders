@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Cta from "@/components/Cta";
 import PriceTable from "@/components/PriceTable";
 import PricingInfo from "@/components/pricing/PricingInfo";
 import Split from "@/components/Split";
@@ -12,7 +12,7 @@ export default function Page() {
     <>
       <div className="wrap page-hero">
         <p className="eyebrow" data-reveal>{tr(l, { pl: "Cennik", en: "Pricing" })}</p>
-        <Split as="h1" text={tr(l, { pl: "Płacisz za minuty.", en: "Pay for minutes." })} />
+        <Split as="h1" text={tr(l, { pl: "Płacisz *za minuty.*", en: "Pay *for minutes.*" })} />
         <p data-reveal>{tr(l, { pl: "Ceny brutto za jedno stanowisko, jedną osobę.", en: "Gross prices per rig, per person." })}</p>
       </div>
       <section className="section" style={{ paddingTop: 0 }}>
@@ -24,9 +24,7 @@ export default function Page() {
             <PricingInfo lang={l} />
           </div>
           <div style={{ marginTop: 40 }} data-reveal>
-            <Link href="/rezerwacja" className="btn-white magnetic">
-              {tr(l, { pl: "Zarezerwuj stanowisko", en: "Book a rig" })}
-            </Link>
+            <Cta href="/rezerwacja">{tr(l, { pl: "Zarezerwuj stanowisko", en: "Book a rig" })}</Cta>
           </div>
         </div>
       </section>
