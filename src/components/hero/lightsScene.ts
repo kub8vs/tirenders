@@ -1,22 +1,36 @@
 import gsap from "gsap";
 import * as THREE from "three";
+import { COCKPIT, cockpitBox } from "./cockpit";
 
 /*
-  Intro strony.
-  0.0–0.6   czerń, nad mokrym asfaltem wisi zgaszona belka startowa, HUD pokazuje N i 000 km/h
-  0.6–2.0   pięć par czerwonych świateł zapala się po kolei (czerwone odbicia na mokrej nawierzchni)
+  Intro strony. Kamera siedzi w kokpicie BMW M4 (zdjęcie w Hero.tsx), tor widać przez przednią szybę.
+  0.0–0.6   wnętrze auta wyłania się z ciemności, za szybą zgaszona belka startowa, na zegarach N i 0 km/h
+  0.6–2.0   pięć par czerwonych świateł zapala się po kolei (czerwona poświata na kokpicie)
   2.6       nagle wszystkie pomarańczowe
-  3.3       zielone = start: kamera wystrzeliwuje, FOV rośnie, smugi lamp, krawężniki uciekają pod kamerę
-  5.3       (Hero.tsx) logo Tirenders, tło przygasa, CTA, trzy sektory z info
+  3.3       zielone = start: auto wystrzeliwuje, rosną prędkość i biegi na zegarach
+  6.7       kokpit znika (przelot przez szybę), zostaje sam tor na cały ekran
+  7.4       (Hero.tsx) logo Tirenders, tło przygasa, CTA
   ~8.0+     przejazd nocą z łagodnymi zakrętami (pętla), na horyzoncie panorama Warszawy
 */
+
+export type LightsFrame = {
+  kmh: number;
+  gear: number;
+  rpm: number;
+  lit: number;
+  signal: number;
+  cockpit: number; // 1 = kamera w kokpicie, 0 = sam tor
+  glow: number; // poświata świateł startowych na wnętrzu auta
+  fade: number;
+  shake: number;
+};
 
 export type LightsOptions = {
   mobile: boolean;
   reducedMotion: boolean;
   onLaunch?: () => void;
   onIntroDone?: () => void;
-  onFrame?: (kmh: number, gear: number, rpm: number, lit: number, signal: number) => void;
+  onFrame?: (f: LightsFrame) => void;
 };
 
 // Wspólne zakrzywienie świata (tor skręca w dal) – ten sam kod w każdym shaderze.
@@ -68,6 +82,9 @@ export class LightsScene {
   private poleMesh!: THREE.InstancedMesh;
   private tl: gsap.core.Timeline | null = null;
   private launched = false;
+  private vw = 1;
+  private vh = 1;
+  private frame: LightsFrame = { kmh: 0, gear: 0, rpm: 0, lit: 0, signal: 0, cockpit: 1, glow: 0, fade: 0, shake: 0 };
 
   S = {
     fade: 0,
@@ -81,7 +98,9 @@ export class LightsScene {
     rev: 0.12, // obroty na postoju (0..1)
     signal: 0, // 0 czerwone, 1 pomarańczowe, 2 zielone
     flash: 0,
-    tilt: 1.0, // kamera patrzy w górę na belkę, po starcie na tor
+    tilt: 1.0, // bez kokpitu kamera patrzy w górę na belkę, po starcie na tor
+    cockpit: 1,
+    glow: 0,
   };
 
   constructor(private canvas: HTMLCanvasElement, private o: LightsOptions) {
@@ -430,6 +449,8 @@ export class LightsScene {
     tl.to(S, { fade: 1, duration: 1.2, ease: "power2.out" }, 0);
     // czerwone zapalają się po kolei → nagle wszystkie pomarańczowe → zielone = start
     for (let i = 1; i <= 5; i++) tl.set(S, { lit: i }, 0.6 + (i - 1) * 0.35);
+    for (let i = 1; i <= 5; i++) tl.to(S, { glow: i / 5, duration: 0.18, ease: "power2.out" }, 0.6 + (i - 1) * 0.35);
+    tl.to(S, { rev: 0.58, duration: 1.1, ease: "power2.out" }, 1.4); // kierowca trzyma obroty przed startem
     tl.set(S, { signal: 1 }, 2.6);
     const out = 3.3;
     tl.set(S, { signal: 2 }, out);
@@ -445,6 +466,9 @@ export class LightsScene {
     tl.to(S, { tilt: -0.05, duration: 1.3, ease: "power2.inOut" }, out);
     tl.to(S, { shake: 1, duration: 0.2 }, out);
     tl.to(S, { shake: 0.25, duration: 2.5 }, out + 0.4);
+    tl.to(S, { glow: 0, duration: 1.4, ease: "power2.out" }, out + 0.15);
+    // kokpit znika: kamera przelatuje przez szybę i zostaje sam tor
+    tl.to(S, { cockpit: 0, duration: 1.3, ease: "power2.inOut" }, out + COCKPIT.exitAt);
     // przejście w spokojny przejazd z zakrętami
     tl.to(S, { speed: 52, duration: 2.5, ease: "sine.inOut" }, out + 4.6);
     tl.to(S, { curveAmp: 1, cruise: 1, duration: 3, ease: "sine.inOut" }, out + 4.2);
@@ -469,6 +493,8 @@ export class LightsScene {
   private resize() {
     const w = this.canvas.clientWidth || window.innerWidth;
     const h = this.canvas.clientHeight || window.innerHeight;
+    this.vw = w;
+    this.vh = h;
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
@@ -559,21 +585,39 @@ export class LightsScene {
     hz.uniforms.uRed.value = this.launched ? 0 : S.lit / 5;
 
     // kamera: niska, jak z kokpitu; kopnięcie FOV przy starcie, wstrząsy, przechył w zakrętach
+    // w kokpicie: kadr przesunięty tak, żeby środek widoku wypadał na wprost kierowcy w szybie,
+    // a FOV dobrany do wysokości szyby; przy znikaniu kokpitu płynnie wraca do pełnego ekranu
     const cam = this.camera;
+    const C = S.cockpit;
     const portrait = cam.aspect < 1;
     const baseFov = portrait ? 66 : 46;
-    cam.fov = baseFov + S.fovKick * 16;
-    cam.updateProjectionMatrix();
+    const box = cockpitBox(this.vw, this.vh);
+    const glass = COCKPIT.glassH * box.s;
+    const cockpitFov = (2 * Math.atan(Math.tan((15 * Math.PI) / 180) * (this.vh / glass)) * 180) / Math.PI;
+    cam.fov = baseFov + (cockpitFov - baseFov) * C + S.fovKick * 16 * (1 - 0.6 * C);
+    const dx = (box.x + COCKPIT.aimX * box.s - this.vw / 2) * C;
+    const dy = (box.y + COCKPIT.aimY * box.s - this.vh / 2) * C;
+    cam.setViewOffset(this.vw, this.vh, -dx, -dy, this.vw, this.vh);
     const sh = S.shake * (0.012 + stretch * 0.01);
     cam.position.set((Math.random() - 0.5) * sh, 1.15 + (Math.random() - 0.5) * sh, 0);
     const lookAhead = 30;
     const curveX = u.uCurve.value * lookAhead * lookAhead * 0.0009 * 0.35;
-    cam.lookAt(curveX, 1.15 + S.tilt, -lookAhead);
+    cam.lookAt(curveX, 1.15 + S.tilt * (1 - C), -lookAhead);
     cam.rotation.z += -u.uCurve.value * 0.03 * S.cruise;
 
     const kmh = S.speed * 3.6;
     const g = this.gearOf(kmh);
-    this.o.onFrame?.(kmh, g.gear, g.rpm, S.lit, S.signal);
+    const f = this.frame;
+    f.kmh = kmh;
+    f.gear = g.gear;
+    f.rpm = g.rpm;
+    f.lit = S.lit;
+    f.signal = S.signal;
+    f.cockpit = C;
+    f.glow = S.glow;
+    f.fade = S.fade;
+    f.shake = S.shake;
+    this.o.onFrame?.(f);
   }
 
   dispose() {
