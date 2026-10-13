@@ -23,6 +23,16 @@ export type LightsFrame = {
   glow: number; // poświata świateł startowych na wnętrzu auta
   fade: number;
   shake: number;
+  t: number;
+  travel: number;
+  g: number; // przeciążenie przy przyspieszaniu (0..1), spada na chwilę przy zmianie biegu
+  vib: number; // drgania auta: start + prędkość
+  lampL: number; // światło lamp toru wpadające przez szybę, lewa i prawa strona
+  lampLp: number; // 0 = lampa daleko (plama przy szybie), 1 = nad autem (plama na kierownicy)
+  lampR: number;
+  lampRp: number;
+  sideI: number; // lampa mijana za boczną szybą
+  sideP: number; // 0 = przód szyby, 1 = tył
 };
 
 export type LightsOptions = {
@@ -84,7 +94,11 @@ export class LightsScene {
   private launched = false;
   private vw = 1;
   private vh = 1;
-  private frame: LightsFrame = { kmh: 0, gear: 0, rpm: 0, lit: 0, signal: 0, cockpit: 1, glow: 0, fade: 0, shake: 0 };
+  private frame: LightsFrame = { kmh: 0, gear: 0, rpm: 0, lit: 0, signal: 0, cockpit: 1, glow: 0, fade: 0, shake: 0, t: 0, travel: 0, g: 0, vib: 0, lampL: 0, lampLp: 0, lampR: 0, lampRp: 0, sideI: 0, sideP: 0 };
+  private g = 0;
+  private lastSpeed = 0;
+  private lastGear = 0;
+  private shiftCut = 0;
 
   S = {
     fade: 0,
@@ -554,6 +568,7 @@ export class LightsScene {
 
     // smugi: przewijanie z prędkością, zawijanie w dal
     const m = new THREE.Matrix4();
+    let lampL = 0, lampLp = 0, lampR = 0, lampRp = 0, sideI = 0, sideP = 0;
     const stretch = Math.min(1, S.speed / 70);
     this.streakU.uStretch.value = stretch * 1.6;
     this.streakU.uFade.value = S.fade * (0.55 + stretch * 0.45);
@@ -563,6 +578,14 @@ export class LightsScene {
       m.makeScale(p < 0 ? 1 : -1, 1, 1);
       m.setPosition(p, 0, z);
       this.poleMesh.setMatrixAt(k, m);
+      // światło lampy na wnętrzu: najmocniej ~7 m przed autem, potem plama zjeżdża z deski na kierownicę
+      const front = Math.exp(-(((z + 7) / 6) ** 2));
+      const pos = Math.min(1, Math.max(0, (z + 20) / 20));
+      if (p < 0) {
+        if (front > lampL) [lampL, lampLp] = [front, pos];
+        const side = Math.exp(-(((z - 2) / 2.5) ** 2));
+        if (side > sideI) [sideI, sideP] = [side, Math.min(1, Math.max(0, (z + 1) / 7))];
+      } else if (front > lampR) [lampR, lampRp] = [front, pos];
     });
     this.poleMesh.instanceMatrix.needsUpdate = true;
     u.uHeadOn.value = this.launched ? 1 : 0.15;
@@ -589,6 +612,16 @@ export class LightsScene {
     // a FOV dobrany do wysokości szyby; przy znikaniu kokpitu płynnie wraca do pełnego ekranu
     const cam = this.camera;
     const C = S.cockpit;
+    const kmh = S.speed * 3.6;
+    const g = this.gearOf(kmh);
+    // przeciążenie: rośnie z przyspieszeniem, na chwilę znika przy zmianie biegu (głowa leci do przodu)
+    const accel = dt > 0 ? (S.speed - this.lastSpeed) / dt : 0;
+    this.lastSpeed = S.speed;
+    if (g.gear > this.lastGear && this.lastGear > 0) this.shiftCut = 0.14;
+    this.lastGear = g.gear;
+    this.shiftCut = Math.max(0, this.shiftCut - dt);
+    const target = this.shiftCut > 0 ? 0 : Math.min(1, Math.max(0, accel / 22));
+    this.g += (target - this.g) * Math.min(1, dt * (target < this.g ? 14 : 5));
     const portrait = cam.aspect < 1;
     const baseFov = portrait ? 66 : 46;
     const box = cockpitBox(this.vw, this.vh);
@@ -599,14 +632,13 @@ export class LightsScene {
     const dy = (box.y + COCKPIT.aimY * box.s - this.vh / 2) * C;
     cam.setViewOffset(this.vw, this.vh, -dx, -dy, this.vw, this.vh);
     const sh = S.shake * (0.012 + stretch * 0.01);
-    cam.position.set((Math.random() - 0.5) * sh, 1.15 + (Math.random() - 0.5) * sh, 0);
+    // drgania płynne (szum z sinusów), te same częstotliwości co drgania kokpitu w Hero.tsx
+    cam.position.set((Math.sin(t * 41) + Math.sin(t * 27.3)) * 0.5 * sh, 1.15 + (Math.sin(t * 33.7) + Math.sin(t * 52.1)) * 0.5 * sh, 0);
     const lookAhead = 30;
     const curveX = u.uCurve.value * lookAhead * lookAhead * 0.0009 * 0.35;
-    cam.lookAt(curveX, 1.15 + S.tilt * (1 - C), -lookAhead);
+    cam.lookAt(curveX, 1.15 + S.tilt * (1 - C) + this.g * 0.35 * C, -lookAhead); // auto przysiada, maska idzie w górę
     cam.rotation.z += -u.uCurve.value * 0.03 * S.cruise;
 
-    const kmh = S.speed * 3.6;
-    const g = this.gearOf(kmh);
     const f = this.frame;
     f.kmh = kmh;
     f.gear = g.gear;
@@ -617,6 +649,16 @@ export class LightsScene {
     f.glow = S.glow;
     f.fade = S.fade;
     f.shake = S.shake;
+    f.t = t;
+    f.travel = S.travel;
+    f.g = this.g;
+    f.vib = S.shake + Math.min(1, kmh / 300) * 0.35;
+    f.lampL = lampL * S.fade;
+    f.lampLp = lampLp;
+    f.lampR = lampR * S.fade;
+    f.lampRp = lampRp;
+    f.sideI = sideI * S.fade;
+    f.sideP = sideP;
     this.o.onFrame?.(f);
   }
 

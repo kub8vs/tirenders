@@ -36,8 +36,11 @@ export default function Hero({ t }: { t: Dict["hero"] }) {
     // zdjęcie kokpitu ułożone jak object-fit: cover, ten sam układ co w scenie WebGL
     const cp = cockpit.current!;
     const box = cp.firstElementChild as HTMLDivElement;
+    const dims = { w: 1, h: 1 };
     const layout = () => {
       const b = cockpitBox(el.clientWidth, el.clientHeight);
+      dims.w = b.w;
+      dims.h = b.h;
       box.style.cssText = `left:${b.x}px;top:${b.y}px;width:${b.w}px;height:${b.h}px;--s:${b.s}`;
     };
     layout();
@@ -70,6 +73,10 @@ export default function Hero({ t }: { t: Dict["hero"] }) {
 
     // zegary w aucie i kokpit sterowane z pętli sceny, bez re-renderów Reacta
     const glowEl = cp.querySelector<HTMLDivElement>(".cockpit-glow")!;
+    const lampL = cp.querySelector<HTMLElement>(".lamp-l")!;
+    const lampR = cp.querySelector<HTMLElement>(".lamp-r")!;
+    const streaks = cp.querySelector<HTMLElement>(".side-streaks")!;
+    const flash = cp.querySelector<HTMLElement>(".side-flash")!;
     const speedEl = cp.querySelector<HTMLElement>(".dash-speed b")!;
     const gearEl = cp.querySelector<HTMLElement>(".dash-gear b")!;
     const revEl = cp.querySelector<HTMLElement>(".dash-rev")!;
@@ -95,11 +102,25 @@ export default function Hero({ t }: { t: Dict["hero"] }) {
       const out = 1 - c;
       const op = Math.min(f.fade * 1.4, 1) * Math.min(1, c * 2.2);
       if (Math.abs(op - last.op) > 0.002) cp.style.opacity = String((last.op = op));
-      // start: auto przysiada i drży; wyjście: przelot przez szybę
-      const j = f.shake * (mobile ? 1.2 : 2);
-      const jx = (Math.random() - 0.5) * j;
-      const jy = (Math.random() - 0.5) * j;
-      box.style.transform = `translate3d(${jx}px, ${jy}px, 0) scale(${1 + out * out * 0.9})`;
+      // drgania auta (płynne, te same częstotliwości co kamera), przeciążenie wciska głowę w fotel,
+      // przy zmianie biegu głowa leci do przodu; wyjście: przelot przez szybę
+      const j = f.vib * (mobile ? 1.6 : 2.6);
+      const jx = (Math.sin(f.t * 41) + Math.sin(f.t * 27.3)) * 0.5 * j;
+      const jy = (Math.sin(f.t * 33.7) + Math.sin(f.t * 52.1)) * 0.5 * j + f.g * dims.h * 0.008;
+      box.style.transform = `translate3d(${jx.toFixed(2)}px, ${jy.toFixed(2)}px, 0) scale(${(1 + out * out * 0.9 - f.g * 0.028).toFixed(4)})`;
+      // lampy toru: plama światła wpada przez szybę i zjeżdża z deski na kierownicę
+      const lamp = (node: HTMLElement, i: number, p: number, x0: number, x1: number) => {
+        node.style.opacity = (i * 0.9).toFixed(3);
+        node.style.transform = `translate3d(${(dims.w * (x0 + (x1 - x0) * p)).toFixed(1)}px, ${(dims.h * (0.3 + 0.32 * p)).toFixed(1)}px, 0)`;
+      };
+      lamp(lampL, f.lampL, f.lampLp, 0.36, 0.2);
+      lamp(lampR, f.lampR, f.lampRp, 0.62, 0.8);
+      // boczna szyba: mijane lampy i smugi diod na barierze
+      const speedK = Math.min(1, f.kmh / 160);
+      streaks.style.opacity = (speedK * 0.6).toFixed(3);
+      streaks.style.transform = `translate3d(${(-((f.travel * dims.w * 0.012) % (dims.w * 0.12))).toFixed(1)}px, 0, 0)`;
+      flash.style.opacity = (f.sideI * Math.min(1, f.kmh / 40) * 0.8).toFixed(3);
+      flash.style.transform = `translate3d(${(dims.w * (0.25 - 0.3 * f.sideP)).toFixed(1)}px, 0, 0) scaleX(${(1 + speedK * 2.5).toFixed(2)})`;
       if (f.signal !== last.sig) glowEl.style.setProperty("--glow", GLOW[(last.sig = f.signal)]);
       if (Math.abs(f.glow - last.glow) > 0.004) glowEl.style.opacity = String((last.glow = f.glow) * 0.85);
     };
@@ -107,7 +128,7 @@ export default function Hero({ t }: { t: Dict["hero"] }) {
     (async () => {
       try {
         if (!document.createElement("canvas").getContext("webgl2")) throw new Error("no webgl2");
-        const img = cp.querySelector("img")!;
+        const img = cp.querySelector<HTMLImageElement>(`img[src="${COCKPIT.src}"]`)!;
         const ready = img.decode().catch(() => undefined);
         const [{ LightsScene }] = await Promise.all([import("./lightsScene"), Promise.race([ready, new Promise((r) => setTimeout(r, 2500))])]);
         if (disposed) return;
@@ -142,8 +163,18 @@ export default function Hero({ t }: { t: Dict["hero"] }) {
       <div ref={cockpit} className="cockpit" aria-hidden="true">
         <div className="cockpit-box">
           {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="cockpit-glass" src="/img/kokpit-szyba.webp" alt="" width={COCKPIT.w} height={COCKPIT.h} draggable={false} />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={COCKPIT.src} alt="" width={COCKPIT.w} height={COCKPIT.h} fetchPriority="high" draggable={false} />
-          <div className="cockpit-glow" />
+          <div className="cockpit-light">
+            <div className="cockpit-glow" />
+            <i className="lamp lamp-l" />
+            <i className="lamp lamp-r" />
+          </div>
+          <div className="cockpit-side">
+            <i className="side-streaks" />
+            <i className="side-flash" />
+          </div>
           <div className="dash">
             <div className="dash-speed">
               <b>0</b>

@@ -14,7 +14,8 @@ export const COCKPIT = {
 };
 
 export function cockpitBox(vw: number, vh: number) {
-  const s = Math.max(vw / COCKPIT.w, vh / COCKPIT.h);
+  // 4% zapasu: przeciążenie i drgania lekko zmniejszają/przesuwają zdjęcie, krawędzie nie mogą odsłonić toru
+  const s = Math.max(vw / COCKPIT.w, vh / COCKPIT.h) * 1.04;
   const w = COCKPIT.w * s;
   const h = COCKPIT.h * s;
   const x = Math.min(0, Math.max(vw - w, vw / 2 - COCKPIT.focusX * s));
