@@ -8,10 +8,10 @@ import { getLang, tr } from "@/lib/i18n";
 export const metadata = { title: "O nas" };
 
 const SLOGANS = [
-  { img: "/img/ig/tirenders-post-2.jpg", pl: ["Prawdziwe auto.", "Prawdziwe nerwy."], en: ["Real car.", "Real nerves."], tag: { pl: "BMW M4 F82", en: "BMW M4 F82" } },
-  { img: "/img/ig/tirenders-post-1.jpg", pl: ["Zloty. Drift. Festiwale.", "Teraz własny pit lane."], en: ["Meets. Drift. Festivals.", "Now our own pit lane."], tag: { pl: "Baltic Drive Festival", en: "Baltic Drive Festival" } },
-  { img: "/img/ig/tirenders-6.jpg", pl: ["Ekipa, która", "żyje motoryzacją."], en: ["A crew that", "lives for cars."], tag: { pl: "Tirenders", en: "Tirenders" } },
-  { img: "/img/ig/2real-1.jpg", pl: ["Warszawa. 15.11.", "Wpadaj."], en: ["Warsaw. 15 Nov.", "Come by."], tag: { pl: "2Real Simracing", en: "2Real Simracing" } },
+  { img: "/img/foto/kokpit-symulator.webp", pl: ["Prawdziwe auto.", "Prawdziwe nerwy."], en: ["Real car.", "Real nerves."], tag: { pl: "BMW M4 F82", en: "BMW M4 F82" } },
+  { img: "/img/foto/baltic-namiot-2.webp", pl: ["Zloty. Drift. Festiwale.", "Teraz własny pit lane."], en: ["Meets. Drift. Festivals.", "Now our own pit lane."], tag: { pl: "Baltic Drive Festival", en: "Baltic Drive Festival" } },
+  { img: "/img/foto/ekipa-tirenders.webp", pl: ["Ekipa, która", "żyje motoryzacją."], en: ["A crew that", "lives for cars."], tag: { pl: "Tirenders", en: "Tirenders" } },
+  { img: "/img/foto/supra-nad-symulatorem.webp", pl: ["Warszawa. 15.11.", "Wpadaj."], en: ["Warsaw. 15 Nov.", "Come by."], tag: { pl: "2Real Simracing", en: "2Real Simracing" } },
 ];
 
 const NUMBERS = [
@@ -32,11 +32,11 @@ export default function Page() {
         </div>
         <div className="about-collage" aria-hidden="true">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/img/ig/tirenders-3.jpg" alt="" data-parallax="0.25" className="c1" />
+          <img src="/img/foto/supra-2real.webp" alt="" data-parallax="0.25" className="c1" />
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/img/ig/tirenders-8.jpg" alt="" data-parallax="-0.15" className="c2" />
+          <img src="/img/foto/drift-pod-supra.webp" alt="" data-parallax="-0.15" className="c2" />
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/img/ig/tirenders-9.jpg" alt="" data-parallax="0.4" className="c3" />
+          <img src="/img/foto/m4-noc.webp" alt="" data-parallax="0.4" className="c3" />
         </div>
       </section>
 

@@ -49,7 +49,7 @@ export default function Page() {
             </p>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }} data-reveal>
-            {["/img/ig/tirenders-4.jpg", "/img/ig/tirenders-10.jpg", "/img/ig/tirenders-3.jpg", "/img/ig/tirenders-9.jpg"].map((src) => (
+            {["/img/foto/merch-tirenders.webp", "/img/foto/kokpit-symulator.webp", "/img/foto/bluza-tirenders.webp", "/img/foto/silnik-m.webp"].map((src) => (
               // eslint-disable-next-line @next/next/no-img-element
               <img key={src} src={src} alt="" loading="lazy" style={{ width: "100%", aspectRatio: "3/4", objectFit: "cover", borderRadius: 16 }} />
             ))}

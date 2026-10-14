@@ -17,7 +17,7 @@ export function generateMetadata(): Metadata {
     title: { default: d.meta.title, template: `%s · Tirenders` },
     description: d.meta.description,
     metadataBase: new URL(process.env.APP_URL || "http://localhost:3100"),
-    openGraph: { title: d.meta.title, description: d.meta.description, images: ["/img/ig/tirenders-post-1.jpg"], type: "website" },
+    openGraph: { title: d.meta.title, description: d.meta.description, images: ["/img/foto/og.jpg"], type: "website" },
     icons: { icon: "/icon.svg" },
   };
 }

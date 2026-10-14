@@ -119,7 +119,7 @@ export default function Home() {
           </div>
           <div className="shop-pair">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/img/ig/tirenders-4.jpg" alt="" loading="lazy" data-parallax="0.12" />
+            <img src="/img/foto/merch-tirenders.webp" alt="Koszulka Tirenders" loading="lazy" data-parallax="0.12" />
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/img/himera/wkrotce-dostepne-g0.jpg" alt="Kominiarka Himery" loading="lazy" data-parallax="-0.12" />
           </div>

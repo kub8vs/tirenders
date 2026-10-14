@@ -1,6 +1,6 @@
 // Galeria w dwóch taśmach jadących w przeciwne strony, zdjęcia w naturalnych kolorach.
-const ROW_A = ["/img/ig/tirenders-post-1.jpg", "/img/ig/tirenders-6.jpg", "/img/ig/tirenders-3.jpg", "/img/ig/tirenders-post-2.jpg", "/img/ig/tirenders-8.jpg", "/img/ig/2real-1.jpg"];
-const ROW_B = ["/img/ig/tirenders-5.jpg", "/img/ig/tirenders-9.jpg", "/img/ig/tirenders-4.jpg", "/img/ig/tirenders-7.jpg", "/img/ig/tirenders-10.jpg", "/img/himera/wkrotce-dostepne-g0.jpg"];
+const ROW_A = ["/img/foto/supra-nad-symulatorem.webp", "/img/foto/kokpit-symulator.webp", "/img/foto/baltic-supra.webp", "/img/foto/drift-m3.webp", "/img/foto/ekipa-tirenders.webp", "/img/foto/supra-2real.webp", "/img/foto/baltic-namiot.webp"];
+const ROW_B = ["/img/foto/m4-noc.webp", "/img/foto/silnik-m.webp", "/img/foto/baltic-supra-2.webp", "/img/foto/drift-czarne-m.webp", "/img/foto/bluza-tirenders.webp", "/img/foto/symulator-transport.webp", "/img/foto/wiszaca-supra.webp"];
 
 function Row({ imgs, reverse, offset }: { imgs: string[]; reverse?: boolean; offset: number }) {
   const items = [...imgs, ...imgs];
