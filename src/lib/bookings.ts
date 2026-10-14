@@ -16,7 +16,8 @@ export class BookingError extends Error {
 }
 
 export type NewBooking = {
-  simulatorId: string;
+  simulatorId?: string;
+  simulatorIds?: string[]; // kilka stanowisk na ten sam termin = rezerwacja grupowa z rabatem
   start: Date;
   durationMin: number;
   name: string;
@@ -31,54 +32,80 @@ export type NewBooking = {
 };
 
 export async function createBooking(input: NewBooking) {
-  const sim = simById(input.simulatorId);
-  if (!sim || sim.status !== "ACTIVE") throw new BookingError("invalid");
+  const ids = [...new Set(input.simulatorIds?.length ? input.simulatorIds : input.simulatorId ? [input.simulatorId] : [])];
+  const sims = ids.map((id) => simById(id));
+  if (!sims.length || sims.some((s) => !s || s.status !== "ACTIVE")) throw new BookingError("invalid");
   const admin = input.source === "ADMIN";
   if (!validStart(input.start, input.durationMin, new Date(), admin)) throw new BookingError("closed");
   const end = new Date(input.start.getTime() + input.durationMin * MIN);
-  const q = await quote(sim.id, input.durationMin, input.discountCode);
+  const q = await quote(ids, input.durationMin, input.discountCode);
 
-  const booking = await prisma.$transaction(async (tx) => {
-    if (!(await isFree(tx, sim.id, input.start, end))) throw new BookingError("slot_taken");
-    let code = bookingCode();
-    while (await tx.booking.findUnique({ where: { code } })) code = bookingCode();
-    return tx.booking.create({
-      data: {
-        code,
-        simulatorId: sim.id,
-        userId: input.userId ?? null,
-        name: input.name.trim(),
-        email: input.email.trim().toLowerCase(),
-        phone: input.phone.trim(),
-        start: input.start,
-        end,
-        durationMin: input.durationMin,
-        listPriceGross: q.list,
-        discountAmount: q.discount,
-        discountCode: q.code,
-        priceGross: q.total,
-        status: input.markPaid ? "PAID" : "PENDING",
-        paidAt: input.markPaid ? new Date() : null,
-        paymentProvider: input.markPaid ? "onsite" : null,
-        paymentMethod: input.markPaid ? "ONSITE" : null,
-        holdExpiresAt: input.markPaid ? null : new Date(Date.now() + BOOKING.holdMin * MIN),
-        source: input.source ?? "ONLINE",
-        note: input.note,
-        locale: input.locale === "en" ? "en" : "pl",
-      },
-    });
+  const bookings = await prisma.$transaction(async (tx) => {
+    for (const id of ids) if (!(await isFree(tx, id, input.start, end))) throw new BookingError("slot_taken");
+    const out: Booking[] = [];
+    let groupId: string | null = null;
+    for (const item of q.items) {
+      let code = bookingCode();
+      while (await tx.booking.findUnique({ where: { code } })) code = bookingCode();
+      if (ids.length > 1) groupId ??= code;
+      out.push(
+        await tx.booking.create({
+          data: {
+            code,
+            groupId,
+            simulatorId: item.simulatorId,
+            userId: input.userId ?? null,
+            name: input.name.trim(),
+            email: input.email.trim().toLowerCase(),
+            phone: input.phone.trim(),
+            start: input.start,
+            end,
+            durationMin: input.durationMin,
+            listPriceGross: item.list,
+            discountAmount: item.discount,
+            discountCode: q.codeApplied ? q.code : null,
+            priceGross: item.total,
+            status: input.markPaid ? "PAID" : "PENDING",
+            paidAt: input.markPaid ? new Date() : null,
+            paymentProvider: input.markPaid ? "onsite" : null,
+            paymentMethod: input.markPaid ? "ONSITE" : null,
+            holdExpiresAt: input.markPaid ? null : new Date(Date.now() + BOOKING.holdMin * MIN),
+            source: input.source ?? "ONLINE",
+            note: input.note ?? (q.groupPercent ? `Rabat grupowy ${q.groupPercent}% (${ids.length} stanowisk)` : undefined),
+            locale: input.locale === "en" ? "en" : "pl",
+          },
+        }),
+      );
+    }
+    return out;
   });
 
+  const booking = bookings[0];
   if (input.markPaid) {
-    await afterPaid(booking);
-    return { booking, checkoutUrl: null };
+    for (const b of bookings) await afterPaid(b);
+    return { booking, bookings, checkoutUrl: null };
   }
-  const checkoutUrl = await createCheckout(booking);
-  return { booking, checkoutUrl };
+  const checkoutUrl = await createCheckout(bookings);
+  return { booking, bookings, checkoutUrl };
 }
+
+/** Czy ta rezerwacja dostaje SMS-y (w grupie tylko pierwsza, żeby nie wysyłać kilku na ten sam numer). */
+export const smsLead = (b: Booking) => !b.groupId || b.groupId === b.code;
 
 /** Wywoływane przez webhook Stripe albo bramkę testową. Idempotentne. */
 export async function markPaid(bookingId: string, ref: { provider: string; ref?: string; method?: string }) {
+  const first = await prisma.booking.findUnique({ where: { id: bookingId } });
+  if (!first?.groupId) return markOnePaid(bookingId, ref);
+  const group = await prisma.booking.findMany({ where: { groupId: first.groupId }, orderBy: { createdAt: "asc" } });
+  let out = first;
+  for (const g of group) {
+    const r = await markOnePaid(g.id, ref);
+    if (g.id === first.id && r) out = r;
+  }
+  return out;
+}
+
+async function markOnePaid(bookingId: string, ref: { provider: string; ref?: string; method?: string }) {
   const b = await prisma.booking.findUnique({ where: { id: bookingId } });
   if (!b || b.status === "PAID" || b.status === "COMPLETED") return b;
   if (b.status !== "PENDING" && b.status !== "EXPIRED") return b;
@@ -101,7 +128,7 @@ export async function markPaid(bookingId: string, ref: { provider: string; ref?:
 async function afterPaid(b: Booking) {
   const m = confirmationEmail(b);
   await sendEmail({ to: b.email, subject: m.subject, html: m.html, text: m.text, bookingId: b.id });
-  await sendSms(b.phone, confirmationSms(b), b.id);
+  if (smsLead(b)) await sendSms(b.phone, confirmationSms(b), b.id);
   // Rezerwacja zrobiona w ciągu 24 h: przypomnienie 24 h nie ma sensu.
   if (b.start.getTime() - Date.now() < 24 * 60 * MIN) await prisma.booking.update({ where: { id: b.id }, data: { remind24At: new Date(0) } });
   const staff = process.env.STAFF_NOTIFY_EMAIL;

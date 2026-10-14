@@ -1,41 +1,42 @@
-import { BOOKING, PRICES, SIMULATORS, type PriceGroup } from "@/config/site";
+import { BOOKING, GROUP_DISCOUNTS, PRICES, SIMULATORS, WHOLE_SALON_PERCENT } from "@/config/site";
 
-const GROUP_LABEL: Record<PriceGroup, { pl: [string, string]; en: [string, string] }> = {
-  STANDARD: { pl: ["Karoseria", "BMW M4 F82 · BMW E46 · Nissan 370Z"], en: ["Car body", "BMW M4 F82 · BMW E46 · Nissan 370Z"] },
-  GT3: { pl: ["GT3 Cockpit", "Kokpit wyścigowy"], en: ["GT3 Cockpit", "Race cockpit"] },
-  MOTION5: { pl: ["Motion 5DOF", "2 platformy ruchu"], en: ["Motion 5DOF", "2 motion rigs"] },
-  MOTION6: { pl: ["Motion 6DOF", "Pełne 6 stopni swobody"], en: ["Motion 6DOF", "Full 6 degrees of freedom"] },
-};
-
+// Cennik per stanowisko, tak jak podał Tirenders. Wszystkie kwoty brutto (z VAT).
 export default function PriceTable({ lang }: { lang: "pl" | "en" }) {
-  const groups = (Object.keys(PRICES) as PriceGroup[]).filter((g) => SIMULATORS.some((s) => s.priceGroup === g));
+  const [a, b] = GROUP_DISCOUNTS;
   return (
-    <div className="table-scroll">
-      <table className="price-table">
-        <thead>
-          <tr>
-            <th scope="col">{lang === "pl" ? "Stanowisko" : "Rig"}</th>
-            {BOOKING.durations.map((d) => (
-              <th scope="col" key={d}>
-                {d} min
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {groups.map((g) => (
-            <tr key={g}>
-              <td>
-                {GROUP_LABEL[g][lang][0]}
-                <small>{GROUP_LABEL[g][lang][1]}</small>
-              </td>
+    <div>
+      <div className="table-scroll">
+        <table className="price-table">
+          <thead>
+            <tr>
+              <th scope="col">{lang === "pl" ? "Symulator" : "Rig"}</th>
               {BOOKING.durations.map((d) => (
-                <td key={d}>{PRICES[g][d]} zł</td>
+                <th scope="col" key={d}>
+                  {d} min
+                </th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {SIMULATORS.map((s) => (
+              <tr key={s.id}>
+                <td>
+                  {s.name}
+                  {s.status !== "ACTIVE" && <small>{lang === "pl" ? "Wkrótce" : "Coming soon"}</small>}
+                </td>
+                {BOOKING.durations.map((d) => (
+                  <td key={d}>{PRICES[s.priceGroup][d]} zł</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="price-note">
+        {lang === "pl"
+          ? `Wszystkie ceny brutto (z VAT), za jedno stanowisko. Rękawiczki w cenie. Rabat grupowy: ${a.min}+ stanowiska o tej samej godzinie −${a.percent}%, ${b.min}+ −${b.percent}%, cały salon −${WHOLE_SALON_PERCENT}%.`
+          : `All prices include VAT, per rig. Gloves included. Group discount: ${a.min}+ rigs at the same time −${a.percent}%, ${b.min}+ −${b.percent}%, the whole venue −${WHOLE_SALON_PERCENT}%.`}
+      </p>
     </div>
   );
 }

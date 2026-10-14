@@ -29,8 +29,9 @@ export async function POST(req: Request) {
     }
   }
   if (event.type === "checkout.session.expired") {
-    const id = (event.data.object as Stripe.Checkout.Session).metadata?.bookingId;
-    if (id) await prisma.booking.updateMany({ where: { id, status: "PENDING" }, data: { status: "EXPIRED" } });
+    const meta = (event.data.object as Stripe.Checkout.Session).metadata;
+    const id = meta?.bookingId;
+    if (id) await prisma.booking.updateMany({ where: { OR: [{ id }, ...(meta?.groupId ? [{ groupId: meta.groupId }] : [])], status: "PENDING" }, data: { status: "EXPIRED" } });
   }
   return NextResponse.json({ received: true });
 }

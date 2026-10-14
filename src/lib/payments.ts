@@ -16,28 +16,27 @@ export function stripe() {
 
 export const paymentsLive = () => !!process.env.STRIPE_SECRET_KEY;
 
-export async function createCheckout(b: Booking): Promise<string> {
+/** Jedna płatność za jedną rezerwację albo całą grupę stanowisk na ten sam termin. */
+export async function createCheckout(list: Booking[]): Promise<string> {
+  const b = list[0];
   const s = stripe();
   if (!s) return `/platnosc/test/${b.id}`;
-  const sim = simById(b.simulatorId);
   const session = await s.checkout.sessions.create({
     mode: "payment",
     currency: "pln",
     payment_method_types: ["blik", "card", "p24"],
     customer_email: b.email,
     locale: b.locale === "en" ? "en" : "pl",
-    line_items: [
-      {
-        quantity: 1,
-        price_data: {
-          currency: "pln",
-          unit_amount: b.priceGross,
-          product_data: { name: `${sim?.name ?? "Symulator"} · ${b.durationMin} min`, description: `Rezerwacja ${b.code}` },
-        },
+    line_items: list.map((x) => ({
+      quantity: 1,
+      price_data: {
+        currency: "pln",
+        unit_amount: x.priceGross,
+        product_data: { name: `${simById(x.simulatorId)?.name ?? "Symulator"} · ${x.durationMin} min`, description: `Rezerwacja ${x.code}` },
       },
-    ],
-    metadata: { bookingId: b.id, code: b.code },
-    payment_intent_data: { metadata: { bookingId: b.id, code: b.code } },
+    })),
+    metadata: { bookingId: b.id, code: b.code, groupId: b.groupId ?? "" },
+    payment_intent_data: { metadata: { bookingId: b.id, code: b.code, groupId: b.groupId ?? "" } },
     // Stripe wymaga min. 30 min; nasz własny hold (10 min) pilnuje slotu, a cron wygasza sesję wcześniej.
     expires_at: Math.floor(Date.now() / 1000) + 31 * 60,
     success_url: `${appUrl()}/rezerwacja/sukces?b=${b.id}`,

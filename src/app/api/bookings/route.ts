@@ -6,7 +6,8 @@ import { BookingError, createBooking } from "@/lib/bookings";
 import { prisma } from "@/lib/db";
 
 const Body = z.object({
-  simulatorId: z.string().max(40),
+  simulatorId: z.string().max(40).optional(),
+  simulatorIds: z.array(z.string().max(40)).min(1).max(10).optional(),
   start: z.string().datetime(),
   durationMin: z.number().int().refine((d) => BOOKING.durations.includes(d as never)),
   name: z.string().trim().min(2).max(120),
@@ -21,6 +22,8 @@ export async function POST(req: Request) {
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "invalid", issues: parsed.error.flatten().fieldErrors }, { status: 400 });
   const d = parsed.data;
+  const simulatorIds = d.simulatorIds ?? (d.simulatorId ? [d.simulatorId] : []);
+  if (!simulatorIds.length) return NextResponse.json({ error: "invalid" }, { status: 400 });
 
   // prosta ochrona przed zalewem: max 3 nieopłacone holdy na e-mail
   const holds = await prisma.booking.count({ where: { email: d.email.toLowerCase(), status: "PENDING", holdExpiresAt: { gt: new Date() } } });
@@ -29,7 +32,7 @@ export async function POST(req: Request) {
   const user = await currentUser();
   try {
     const { booking, checkoutUrl } = await createBooking({
-      simulatorId: d.simulatorId,
+      simulatorIds,
       start: new Date(d.start),
       durationMin: d.durationMin,
       name: d.name,

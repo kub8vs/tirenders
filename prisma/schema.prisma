@@ -64,6 +64,7 @@ model Booking {
   cancelledAt     DateTime?
   refundAmount    Int       @default(0)
   source          String    @default("ONLINE") // ONLINE | ADMIN
+  groupId         String? // rezerwacja grupowa: kod pierwszej rezerwacji z grupy (ta dostaje SMS-y)
   note            String?
   locale          String    @default("pl")
   remind24At      DateTime?
@@ -74,6 +75,7 @@ model Booking {
   @@index([simulatorId, start])
   @@index([status])
   @@index([email])
+  @@index([groupId])
 }
 
 model DiscountCode {

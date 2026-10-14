@@ -1,5 +1,6 @@
 import { prisma } from "./db";
 import { sendEmail, sendSms } from "./notify";
+import { smsLead } from "./bookings";
 import { expireCheckout } from "./payments";
 import { reminder10, reminder24, reviewEmail } from "./templates";
 import { MIN } from "./time";
@@ -24,7 +25,7 @@ export async function tick(now = new Date()) {
     const r = reminder24(b);
     await prisma.booking.update({ where: { id: b.id }, data: { remind24At: now } });
     await sendEmail({ to: b.email, ...r.email, bookingId: b.id });
-    await sendSms(b.phone, r.sms, b.id);
+    if (smsLead(b)) await sendSms(b.phone, r.sms, b.id);
     out.r24++;
   }
 
@@ -36,7 +37,7 @@ export async function tick(now = new Date()) {
     const r = reminder10(b);
     await prisma.booking.update({ where: { id: b.id }, data: { remind10At: now } });
     await sendEmail({ to: b.email, ...r.email, bookingId: b.id });
-    await sendSms(b.phone, r.sms, b.id);
+    if (smsLead(b)) await sendSms(b.phone, r.sms, b.id);
     out.r10++;
   }
 

@@ -13,7 +13,7 @@ export default function Page() {
       <div className="wrap page-hero">
         <p className="eyebrow" data-reveal>{tr(l, { pl: "Cennik", en: "Pricing" })}</p>
         <Split as="h1" text={tr(l, { pl: "Płacisz *za minuty.*", en: "Pay *for minutes.*" })} />
-        <p data-reveal>{tr(l, { pl: "Ceny brutto za jedno stanowisko, jedną osobę.", en: "Gross prices per rig, per person." })}</p>
+        <p data-reveal>{tr(l, { pl: "Ceny brutto (z VAT) za jedno stanowisko. Im więcej Was, tym taniej.", en: "Prices incl. VAT, per rig. The more of you, the cheaper." })}</p>
       </div>
       <section className="section" style={{ paddingTop: 0 }}>
         <div className="wrap">

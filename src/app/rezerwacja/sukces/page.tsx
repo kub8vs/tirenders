@@ -14,6 +14,7 @@ export default async function Page({ searchParams }: { searchParams: { b?: strin
   const l = getLang();
   const b = searchParams.b ? await prisma.booking.findUnique({ where: { id: searchParams.b } }) : null;
   const paid = b && ["PAID", "COMPLETED"].includes(b.status);
+  const group = b?.groupId ? await prisma.booking.findMany({ where: { groupId: b.groupId, id: { not: b.id } }, orderBy: { createdAt: "asc" } }) : [];
   return (
     <div className="wrap page-hero" style={{ minHeight: "80vh" }}>
       {!b ? (
@@ -36,6 +37,18 @@ export default async function Page({ searchParams }: { searchParams: { b?: strin
               </span>
             </div>
           </div>
+          {group.length > 0 && (
+            <div style={{ marginTop: 34, display: "grid", gap: 8 }}>
+              <span className="eyebrow">{tr(l, { pl: "Pozostałe stanowiska w Twojej rezerwacji", en: "Other rigs in your booking" })}</span>
+              {group.map((g) => (
+                <a key={g.id} href={manageUrl(g.code)} style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                  <b style={{ letterSpacing: ".14em", fontWeight: 500 }}>{g.code}</b>
+                  <span style={{ color: "var(--muted)" }}>{simById(g.simulatorId)?.name} · {pln(g.priceGross, l)}</span>
+                </a>
+              ))}
+              <span style={{ color: "var(--muted)", fontSize: 14 }}>{tr(l, { pl: "Każde stanowisko ma własny kod i QR w mailu.", en: "Each rig has its own code and QR in the email." })}</span>
+            </div>
+          )}
           <div style={{ display: "flex", gap: 10, marginTop: 40, flexWrap: "wrap" }}>
             <a className="btn-white" href={manageUrl(b.code)}>{tr(l, { pl: "Zarządzaj rezerwacją", en: "Manage booking" })}</a>
             <Link className="btn-ghost" href="/rezerwacja" style={{ height: 54 }}>{tr(l, { pl: "Zarezerwuj kolejne stanowisko", en: "Book another rig" })}</Link>

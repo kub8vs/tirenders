@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { BOOKING, PRICES, SIMULATORS, SITE, simById, type SimDef } from "@/config/site";
+import { BOOKING, GROUP_DISCOUNTS, PRICES, SIMULATORS, SITE, WHOLE_SALON_PERCENT, activeSims, groupPercent, simById, type SimDef } from "@/config/site";
 import SalonPlan from "./SalonPlan";
 
 type Slot = { start: string; free: string[] };
@@ -19,6 +19,16 @@ const T = {
     noSlots: "Na ten dzień nie ma już wolnych terminów. Wybierz inny dzień.",
     loading: "Sprawdzam wolne terminy…",
     step4: "Wybierz stanowisko",
+    promoTitle: "Jedziecie ekipą? Taniej.",
+    promoLead: "Zaznacz kilka stanowisk na tę samą godzinę, a rabat naliczy się sam.",
+    promoTiers: [`${GROUP_DISCOUNTS[0].min}+ stanowiska`, `${GROUP_DISCOUNTS[1].min}+ stanowisk`, "Cały salon"],
+    promoNext: (n: number, p: number) => `Dobierz jeszcze ${n} ${n === 1 ? "stanowisko" : "stanowiska"}, a rabat wzrośnie do ${p}%.`,
+    promoOn: (p: number) => `Rabat grupowy −${p}% naliczony.`,
+    allFree: "Zaznacz cały salon",
+    clear: "Wyczyść",
+    groupDisc: "Rabat grupowy",
+    codeWeaker: "Kod działa, ale rabat grupowy jest większy, więc liczymy grupowy.",
+    rigs: "Stanowiska",
     pickTime: "Najpierw wybierz godzinę: pokażemy, co jest wtedy wolne.",
     step5: "Twoje dane",
     name: "Imię i nazwisko",
@@ -57,6 +67,16 @@ const T = {
     noSlots: "No free slots left on this day. Pick another day.",
     loading: "Checking free slots…",
     step4: "Choose your rig",
+    promoTitle: "Coming as a crew? It's cheaper.",
+    promoLead: "Pick several rigs for the same time and the discount applies on its own.",
+    promoTiers: [`${GROUP_DISCOUNTS[0].min}+ rigs`, `${GROUP_DISCOUNTS[1].min}+ rigs`, "Whole venue"],
+    promoNext: (n: number, p: number) => `Add ${n} more ${n === 1 ? "rig" : "rigs"} and the discount goes up to ${p}%.`,
+    promoOn: (p: number) => `Group discount −${p}% applied.`,
+    allFree: "Book the whole venue",
+    clear: "Clear",
+    groupDisc: "Group discount",
+    codeWeaker: "The code works, but the group discount is bigger, so we use that.",
+    rigs: "Rigs",
     pickTime: "Pick a time first: we'll show what's free then.",
     step5: "Your details",
     name: "Full name",
@@ -105,9 +125,10 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
   const [date, setDate] = useState<string | null>(null);
   const [slots, setSlots] = useState<Slot[] | null>(null);
   const [start, setStart] = useState<string | null>(null);
-  const [sim, setSim] = useState<string | null>(initialSim && simById(initialSim)?.status === "ACTIVE" ? initialSim : null);
+  const [sims, setSims] = useState<string[]>(initialSim && simById(initialSim)?.status === "ACTIVE" ? [initialSim] : []);
+  const toggleSim = (id: string) => setSims((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
   const [form, setForm] = useState({ name: prefill?.name ?? "", email: prefill?.email ?? "", phone: prefill?.phone ?? "", code: "", terms: false });
-  const [quote, setQuote] = useState<{ list: number; discount: number; total: number; codeValid: boolean | null } | null>(null);
+  const [quote, setQuote] = useState<{ list: number; discount: number; total: number; codeValid: boolean | null; codeApplied: boolean; groupPercent: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -135,29 +156,29 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
     if (slots && start && !slot) setStart(null);
   }, [slots, start, slot]);
   useEffect(() => {
-    if (slot && sim && !slot.free.includes(sim)) setSim(null);
-  }, [slot, sim]);
+    if (slot && sims.some((x) => !slot.free.includes(x))) setSims((cur) => cur.filter((x) => slot.free.includes(x)));
+  }, [slot, sims]);
 
   // godziny, w których wybrane stanowisko jest zajęte, zostają widoczne, ale przygaszone
   const visibleSlots = slots ?? [];
 
   const refreshQuote = useCallback(
     (code?: string) => {
-      if (!sim) return setQuote(null);
+      if (!sims.length) return setQuote(null);
       const c = code ?? form.code;
-      fetch(`/api/quote?sim=${sim}&duration=${duration}${c ? `&code=${encodeURIComponent(c)}` : ""}`)
+      fetch(`/api/quote?sims=${sims.join(",")}&duration=${duration}${c ? `&code=${encodeURIComponent(c)}` : ""}`)
         .then((r) => r.json())
         .then(setQuote);
     },
-    [sim, duration, form.code],
+    [sims, duration, form.code],
   );
   useEffect(() => {
     refreshQuote();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sim, duration]);
+  }, [sims.join(","), duration]);
 
   const price = (s: SimDef) => PRICES[s.priceGroup][duration as 15];
-  const ready = !!(start && sim && form.name.trim().length > 1 && /\S+@\S+\.\S+/.test(form.email) && form.phone.replace(/\D/g, "").length >= 9 && form.terms);
+  const ready = !!(start && sims.length && form.name.trim().length > 1 && /\S+@\S+\.\S+/.test(form.email) && form.phone.replace(/\D/g, "").length >= 9 && form.terms);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -167,7 +188,7 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
     const res = await fetch("/api/bookings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ simulatorId: sim, start, durationMin: duration, name: form.name, email: form.email, phone: form.phone, discountCode: quote?.codeValid ? form.code : null, terms: true, lang }),
+      body: JSON.stringify({ simulatorIds: sims, start, durationMin: duration, name: form.name, email: form.email, phone: form.phone, discountCode: quote?.codeApplied ? form.code : null, terms: true, lang }),
     });
     const d = await res.json().catch(() => ({}));
     if (res.ok && d.checkoutUrl) {
@@ -184,7 +205,12 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
     else setError(t.server);
   };
 
-  const s = sim ? simById(sim) : null;
+  const picked = sims.map((x) => simById(x)!).filter(Boolean);
+  const nActive = activeSims().length;
+  const pct = groupPercent(sims.length);
+  // następny próg rabatu: ile stanowisk brakuje i ile wtedy procent
+  const nextTier = [...GROUP_DISCOUNTS.map((t) => ({ min: t.min, percent: t.percent })), { min: nActive, percent: WHOLE_SALON_PERCENT }].find((t) => t.min > sims.length && t.percent > pct);
+  const freeNow = slot ? activeSims().filter((x) => slot.free.includes(x.id)).map((x) => x.id) : [];
 
   return (
     <form className="bk" onSubmit={submit} noValidate>
@@ -228,7 +254,7 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
           ) : (
             <div className="times" role="radiogroup" aria-label={t.step3}>
               {visibleSlots.map((x) => {
-                const off = !!sim && !x.free.includes(sim);
+                const off = sims.some((q) => !x.free.includes(q));
                 return (
                   <button
                     type="button"
@@ -254,10 +280,39 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
             {t.step4}
           </h2>
           {!slot && <p className="hint">{t.pickTime}</p>}
-          <div className="bk-plan">
-            <SalonPlan free={slot ? slot.free : null} selected={sim} onSelect={setSim} price={price} lang={lang} />
+          <div className={`promo ${pct ? "on" : ""}`}>
+            <div className="promo-head">
+              <b>{t.promoTitle}</b>
+              <span>{t.promoLead}</span>
+            </div>
+            <ol className="promo-tiers">
+              {[GROUP_DISCOUNTS[0].percent, GROUP_DISCOUNTS[1].percent, WHOLE_SALON_PERCENT].map((p, i) => (
+                <li key={p} className={pct >= p ? "hit" : ""}>
+                  <b>−{p}%</b>
+                  <span>{t.promoTiers[i]}</span>
+                </li>
+              ))}
+            </ol>
+            <p className="promo-state">
+              {pct ? t.promoOn(pct) : ""} {nextTier && sims.length > 0 ? t.promoNext(nextTier.min - sims.length, nextTier.percent) : ""}
+            </p>
+            {slot && (
+              <div className="promo-actions">
+                <button type="button" className="btn-ghost" disabled={freeNow.length < nActive || sims.length === nActive} onClick={() => setSims(freeNow)}>
+                  {t.allFree} −{WHOLE_SALON_PERCENT}%
+                </button>
+                {sims.length > 1 && (
+                  <button type="button" className="btn-ghost" onClick={() => setSims([])}>
+                    {t.clear}
+                  </button>
+                )}
+              </div>
+            )}
           </div>
-          {s && <p className="hint" style={{ marginTop: 14 }}>{s.body[lang]}</p>}
+          <div className="bk-plan">
+            <SalonPlan free={slot ? slot.free : null} selected={sims} onSelect={toggleSim} price={price} lang={lang} />
+          </div>
+          {picked.length === 1 && <p className="hint" style={{ marginTop: 14 }}>{picked[0].body[lang]}</p>}
         </section>
 
         <section className="bk-step">
@@ -287,11 +342,11 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
               <label htmlFor="bk-code">{t.code}</label>
               <div style={{ display: "flex", gap: 8 }}>
                 <input id="bk-code" className="input" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })} />
-                <button type="button" className="btn-ghost" style={{ height: 52 }} onClick={() => refreshQuote()} disabled={!sim || !form.code}>
+                <button type="button" className="btn-ghost" style={{ height: 52 }} onClick={() => refreshQuote()} disabled={!sims.length || !form.code}>
                   {t.apply}
                 </button>
               </div>
-              {quote?.codeValid === true && <span className="ok">{t.codeOk}</span>}
+              {quote?.codeValid === true && (quote.codeApplied ? <span className="ok">{t.codeOk}</span> : <span className="hint" style={{ marginTop: 6 }}>{t.codeWeaker}</span>)}
               {quote?.codeValid === false && <span className="err">{t.codeBad}</span>}
             </div>
           </div>
@@ -325,12 +380,12 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
               <dd>{start ? fmtTime(start) : "—"}</dd>
             </div>
             <div>
-              <dt>{lang === "pl" ? "Stanowisko" : "Rig"}</dt>
-              <dd>{s?.name ?? "—"}</dd>
+              <dt>{picked.length > 1 ? `${t.rigs} (${picked.length})` : lang === "pl" ? "Stanowisko" : "Rig"}</dt>
+              <dd>{picked.length ? picked.map((x) => x.name).join(", ") : "—"}</dd>
             </div>
             {!!quote?.discount && (
               <div>
-                <dt>{t.discount}</dt>
+                <dt>{quote.groupPercent ? `${t.groupDisc} −${quote.groupPercent}%` : t.discount}</dt>
                 <dd>−{(quote.discount / 100).toFixed(0)} zł</dd>
               </div>
             )}
@@ -383,6 +438,20 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
         .time.on { background: #fff; color: #000; border-color: #fff; }
         .time.on i { color: #555; }
         .time.dim { opacity: .4; }
+        .promo { margin-bottom: 18px; max-width: 560px; border: 1px solid var(--line); border-radius: 18px; padding: 18px; display: grid; gap: 14px; background: radial-gradient(120% 140% at 100% 0%, rgba(255,42,42,.18), transparent 60%), #070707; transition: border-color .3s; }
+        .promo.on { border-color: rgba(26,255,90,.45); }
+        .promo-head { display: grid; gap: 4px; }
+        .promo-head b { font-size: 18px; font-weight: 500; }
+        .promo-head span { color: var(--muted); font-size: 14px; }
+        .promo-tiers { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+        .promo-tiers li { border: 1px solid var(--line-2); border-radius: 14px; padding: 12px; display: grid; gap: 2px; transition: background .3s, color .3s, border-color .3s; }
+        .promo-tiers b { font-size: 22px; font-weight: 500; letter-spacing: -.02em; }
+        .promo-tiers span { font-size: 12px; color: var(--muted); }
+        .promo-tiers li.hit { background: #fff; color: #000; border-color: #fff; }
+        .promo-tiers li.hit span { color: #555; }
+        .promo-state { font-size: 13.5px; color: #9ff0c0; min-height: 1.2em; margin: 0; }
+        .promo-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .promo-actions :global(.btn-ghost) { height: 44px; }
         .bk-side { position: sticky; top: 100px; min-width: 0; }
         .bk-sum { padding: 24px; display: grid; gap: 16px; }
         dl { margin: 0; display: grid; }

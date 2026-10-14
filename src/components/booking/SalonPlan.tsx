@@ -4,7 +4,7 @@ import { SIMULATORS, type SimDef } from "@/config/site";
 
 type Props = {
   free: string[] | null; // null = nie wybrano godziny
-  selected: string | null;
+  selected: string[];
   onSelect: (id: string) => void;
   price: (s: SimDef) => number | null;
   lang: "pl" | "en";
@@ -37,7 +37,7 @@ export default function SalonPlan({ free, selected, onSelect, price, lang }: Pro
         {SIMULATORS.map((s) => {
           const soon = s.status !== "ACTIVE";
           const isFree = !soon && (free === null || free.includes(s.id));
-          const isSel = selected === s.id;
+          const isSel = selected.includes(s.id);
           const body = s.priceGroup === "STANDARD";
           const p = price(s);
           return (

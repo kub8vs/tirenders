@@ -45,14 +45,14 @@ export const BOOKING = {
 export type PriceGroup = "STANDARD" | "GT3" | "MOTION5" | "MOTION6";
 export type Duration = (typeof BOOKING.durations)[number];
 
-// TODO: ceny przykładowe (ankieta: „ustal przykładowe ceny”). Kwoty brutto w PLN.
-// Rękawiczki (5 zł) są już wliczone w każdą cenę (klient, 14.10.2026).
+// Cennik od Tirenders (14.10.2026). Kwoty brutto w PLN (z VAT, tyle płaci klient).
+// Rękawiczki (5 zł) są już wliczone w każdą cenę.
 export const GLOVES_PRICE = 5;
 export const PRICES: Record<PriceGroup, Record<Duration, number>> = {
-  STANDARD: { 15: 44, 30: 74, 45: 104, 60: 134, 90: 184 },
-  GT3: { 15: 50, 30: 84, 45: 120, 60: 154, 90: 214 },
-  MOTION5: { 15: 54, 30: 94, 45: 134, 60: 174, 90: 244 },
-  MOTION6: { 15: 64, 30: 110, 45: 154, 60: 204, 90: 284 },
+  STANDARD: { 15: 79, 30: 99, 45: 139, 60: 179, 90: 229 },
+  GT3: { 15: 49, 30: 79, 45: 109, 60: 129, 90: 179 },
+  MOTION5: { 15: 79, 30: 129, 45: 189, 60: 209, 90: 279 },
+  MOTION6: { 15: 79, 30: 179, 45: 269, 60: 299, 90: 399 },
 };
 
 export type SimDef = {
@@ -79,3 +79,16 @@ export const SIMULATORS: SimDef[] = [
 
 export const simById = (id: string) => SIMULATORS.find((s) => s.id === id);
 export const priceFor = (group: PriceGroup, d: Duration) => PRICES[group][d];
+
+// Rabaty grupowe (14.10.2026): kilka stanowisk na tę samą godzinę w jednej rezerwacji.
+// Cały salon = wszystkie aktywne stanowiska naraz. Rabat nie łączy się z kodem: liczy się większy.
+export const GROUP_DISCOUNTS = [
+  { min: 3, percent: 10 },
+  { min: 5, percent: 15 },
+] as const;
+export const WHOLE_SALON_PERCENT = 25;
+export const activeSims = () => SIMULATORS.filter((s) => s.status === "ACTIVE");
+export function groupPercent(count: number) {
+  if (count >= 2 && count >= activeSims().length) return WHOLE_SALON_PERCENT;
+  return GROUP_DISCOUNTS.reduce((p, t) => (count >= t.min ? t.percent : p), 0 as number);
+}
