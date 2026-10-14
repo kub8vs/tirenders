@@ -2,14 +2,16 @@
 
 import gsap from "gsap";
 import Cta from "@/components/Cta";
+import Link from "next/link";
+import Rich from "@/components/Rich";
 import { useEffect, useRef, useState } from "react";
 import type { Dict } from "@/content/dict";
 import { COCKPIT, cockpitBox } from "./cockpit";
 import type { LightsFrame, LightsScene } from "./lightsScene";
 
-// Najpierw film z nagrań klienta: podchodzisz do M4 F82, wsiadasz, zamykasz drzwi, w symulatorze
-// łapiesz kierownicę i kamera najeżdża na ekran. Na ekranie rusza animacja: nocny tor, światła startowe,
-// start, ekran rozlewa się na całą stronę i pojawia się logo.
+// Najpierw film z nagrań klienta w symulatorze: siadasz, stopa na pedale, odpalenie (zegary),
+// kierownica, ruszasz i kamera płynnie najeżdża na monitor. Ostatnia klatka przechodzi w zapętlone
+// tło z tej samej gry (ten sam kadr), więc nie widać szwu; na nim pojawia się logo.
 // Bez filmu (ograniczony ruch, oszczędzanie danych, brak autoodtwarzania) zostaje dawne intro:
 // kokpit BMW M4, za szybą tor i belka → czerwone → pomarańczowe → zielone = start,
 // na zegarach rośnie prędkość i biegi → po ~3,5 s kokpit znika, zostaje sam tor
@@ -17,8 +19,8 @@ import type { LightsFrame, LightsScene } from "./lightsScene";
 const LOGO_DELAY = COCKPIT.exitAt + 1;
 const GLOW = ["255, 34, 22", "255, 138, 0", "26, 255, 90"];
 const REV_SEGMENTS = 10;
-// cięcia w /video/intro.mp4 (s): auto, wsiadanie, drzwi, kierownica w symulatorze, najazd na ekran
-const FILM = { src: "/video/intro.mp4", srcM: "/video/intro-m.mp4", cuts: [0, 1.6, 3.446, 4.279, 5.579], end: 7.58 };
+// cięcia w /video/intro.mp4 (s): kokpit, pedał, odpalenie, kierownica, ruszasz + najazd na monitor
+const FILM = { src: "/video/intro.mp4", srcM: "/video/intro-m.mp4", bg: "/video/intro-bg.mp4", bgM: "/video/intro-bg-m.mp4", cuts: [0, 2.0, 3.714, 5.964, 7.75], end: 11.75 };
 
 export default function Hero({ t }: { t: Dict["hero"] }) {
   const root = useRef<HTMLElement>(null);
@@ -67,6 +69,7 @@ export default function Hero({ t }: { t: Dict["hero"] }) {
       reveal
         .fromTo(q(".hero-logo"), { opacity: 0, scale: 0.86, filter: "blur(22px) brightness(2.2)" }, { opacity: 1, scale: 1, filter: "blur(0px) brightness(1)", duration: 1.3, ease: "expo.out" }, 0)
         .add(() => el.querySelector(".hero-logo")?.classList.add("shine"), 0.5)
+        .add(() => el.querySelector(".hero-go")?.classList.add("go"), 1.1)
         .fromTo(q(".hero-dim"), { opacity: 0 }, { opacity: 1, duration: 1.4, ease: "power2.inOut" }, 0.35)
         .fromTo(q(".tagline"), { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.8 }, 0.8)
         .fromTo(q(".hero-cta"), { opacity: 0, y: 20, scale: 0.96 }, { opacity: 1, y: 0, scale: 1, duration: 0.9 }, 0.95)
@@ -74,14 +77,9 @@ export default function Hero({ t }: { t: Dict["hero"] }) {
       revealRef.current = reveal;
     }, el);
 
-    let afterFilm = false;
     const launch = () => {
       if (reduced) revealRef.current?.progress(1);
-      else if (afterFilm) {
-        // zielone na ekranie: obraz z monitora rozlewa się na całą stronę, potem logo
-        el.classList.remove("on-screen");
-        logoCall.current = gsap.delayedCall(1.1, () => void revealRef.current?.play());
-      } else logoCall.current = gsap.delayedCall(LOGO_DELAY, () => void revealRef.current?.play());
+      else logoCall.current = gsap.delayedCall(LOGO_DELAY, () => void revealRef.current?.play());
     };
 
     // zegary w aucie i kokpit sterowane z pętli sceny, bez re-renderów Reacta
@@ -138,12 +136,11 @@ export default function Hero({ t }: { t: Dict["hero"] }) {
       if (Math.abs(f.glow - last.glow) > 0.004) glowEl.style.opacity = String((last.glow = f.glow) * 0.85);
     };
 
-    const startScene = async (fromFilm: boolean) => {
-      afterFilm = fromFilm;
+    const startScene = async () => {
       try {
         if (!document.createElement("canvas").getContext("webgl2")) throw new Error("no webgl2");
         const img = cp.querySelector<HTMLImageElement>(`img[src="${COCKPIT.src}"]`)!;
-        const ready = fromFilm ? undefined : img.decode().catch(() => undefined);
+        const ready = img.decode().catch(() => undefined);
         const [{ LightsScene }] = await Promise.all([import("./lightsScene"), Promise.race([ready, new Promise((r) => setTimeout(r, 2500))])]);
         if (disposed) return;
         scene.current = new LightsScene(canvas.current!, { mobile, reducedMotion: reduced, onLaunch: launch, onFrame });
@@ -153,8 +150,23 @@ export default function Hero({ t }: { t: Dict["hero"] }) {
       }
     };
 
-    // ---------- film: wsiadanie i start ----------
+    // ---------- film: odpalenie, start i najazd na monitor ----------
     const video = el.querySelector<HTMLVideoElement>(".hero-film");
+    const bgVideo = el.querySelector<HTMLVideoElement>(".hero-bg")!;
+    let bgStarted = false;
+    const startBg = () => {
+      if (bgStarted) return;
+      bgStarted = true;
+      bgVideo.currentTime = 0;
+      void bgVideo.play().catch(() => undefined);
+    };
+    // tło gra tylko, gdy hero jest na ekranie
+    const io = new IntersectionObserver(([e]) => {
+      if (!bgStarted) return;
+      if (e.isIntersecting) void bgVideo.play().catch(() => undefined);
+      else bgVideo.pause();
+    });
+    io.observe(el);
     const save = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData;
     let filmOn = !!video && !reduced && !save;
     let raf = 0;
@@ -179,7 +191,7 @@ export default function Hero({ t }: { t: Dict["hero"] }) {
         capTxt!.parentElement!.classList.add("swap");
       }
       bar!.style.transform = `scaleX(${Math.min(1, ft / FILM.end).toFixed(3)})`;
-      if (ft >= FILM.end - 0.35) return endFilm();
+      if (ft >= FILM.end + 0.2) return endFilm(); // gdyby "ended" nie przyszło
       raf = requestAnimationFrame(tick);
     };
     const endFilm = () => {
@@ -187,25 +199,37 @@ export default function Hero({ t }: { t: Dict["hero"] }) {
       filmOn = false;
       cancelAnimationFrame(raf);
       clearTimeout(wait);
-      el.classList.add("film-out", "on-screen", "from-film");
-      void startScene(true);
+      // film stoi na ostatniej klatce, tło z gry rusza dokładnie od następnej i dopiero wtedy przenikamy
+      let shown = false;
+      const show = () => {
+        if (shown || disposed) return;
+        shown = true;
+        el.classList.add("film-out", "bg-on");
+        logoCall.current = gsap.delayedCall(0.35, () => void revealRef.current?.play());
+      };
+      bgVideo.addEventListener("playing", show, { once: true });
+      setTimeout(show, 400);
+      startBg();
       setTimeout(() => {
         video?.pause();
         if (!disposed) setFilm(false);
-      }, 1100);
+      }, 900);
     };
     const noFilm = () => {
       if (!filmOn) return;
       filmOn = false;
       clearTimeout(wait);
       setFilm(false);
-      void startScene(false);
+      void startScene();
     };
     endFilmRef.current = endFilm;
     if (filmOn && video) {
       const mp4 = video.canPlayType('video/mp4; codecs="avc1.640028"') !== "";
       const src = mobile ? FILM.srcM : FILM.src;
       video.src = mp4 ? src : src.replace(".mp4", ".webm");
+      const bgSrc = mobile ? FILM.bgM : FILM.bg;
+      bgVideo.src = mp4 ? bgSrc : bgSrc.replace(".mp4", ".webm");
+      bgVideo.load();
       video.addEventListener("ended", endFilm);
       video.addEventListener("error", noFilm);
       video.addEventListener("playing", () => {
@@ -217,10 +241,9 @@ export default function Hero({ t }: { t: Dict["hero"] }) {
       // słabe łącze: jeśli film nie ruszy w 5 s, pokazujemy dawne intro
       wait = setTimeout(noFilm, 5000);
       video.play().catch(noFilm);
-      void import("./lightsScene");
     } else {
       setFilm(false);
-      void startScene(false);
+      void startScene();
     }
 
     return () => {
@@ -230,6 +253,7 @@ export default function Hero({ t }: { t: Dict["hero"] }) {
       clearTimeout(wait);
       html.dataset.intro = "off";
       ro.disconnect();
+      io.disconnect();
       logoCall.current?.kill();
       ctx.revert();
       scene.current?.dispose();
@@ -247,7 +271,7 @@ export default function Hero({ t }: { t: Dict["hero"] }) {
   return (
     <section ref={root} className={`hero ${gl ? "" : "no-gl"}`} aria-label="Intro">
       <canvas ref={canvas} className="hero-canvas" aria-hidden="true" />
-      <div className="screen-bezel" aria-hidden="true" />
+      <video className="hero-bg" muted playsInline loop preload="auto" aria-hidden="true" />
 
       <div ref={cockpit} className="cockpit" aria-hidden="true">
         <div className="cockpit-box">
@@ -293,7 +317,6 @@ export default function Hero({ t }: { t: Dict["hero"] }) {
               </i>
             </div>
           </div>
-          <div className="film-flash" aria-hidden="true" />
         </>
       )}
 
@@ -306,10 +329,37 @@ export default function Hero({ t }: { t: Dict["hero"] }) {
         <div className="hero-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img className="hero-logo" src="/img/2real-logo.webp" alt="2Real Simracing by Tirenders" width={1109} height={384} />
-          <p className="tagline">{t.tagline}</p>
-          <Cta href="/rezerwacja" big className="hero-cta">
-            {t.cta}
-          </Cta>
+          <div className="tagline">
+            <p className="tagline-main">
+              <Rich text={t.tagline} />
+            </p>
+            <p className="tagline-meta">
+              {t.taglineMeta.map((m) => (
+                <span key={m}>{m}</span>
+              ))}
+            </p>
+          </div>
+          <div className="hero-cta">
+            <Link href="/rezerwacja" className="hero-go magnetic">
+              <span className="go-lights" aria-hidden="true">
+                <i />
+                <i />
+                <i />
+              </span>
+              <span className="go-txt">
+                <b>{t.cta}</b>
+                <small>{t.ctaSub}</small>
+              </span>
+              <span className="go-arrow" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <path d="M5 12h13M13 6l6 6-6 6" />
+                </svg>
+              </span>
+            </Link>
+            <Cta href="/oferta" ghost className="hero-cta2">
+              {t.cta2}
+            </Cta>
+          </div>
         </div>
 
         {gl && !revealed && (
