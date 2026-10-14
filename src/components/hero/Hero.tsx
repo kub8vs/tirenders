@@ -9,18 +9,12 @@ import type { Dict } from "@/content/dict";
 import { COCKPIT, cockpitBox } from "./cockpit";
 import type { LightsFrame, LightsScene } from "./lightsScene";
 
-// Najpierw film z nagrań klienta w symulatorze: siadasz, stopa na pedale, odpalenie (zegary),
-// kierownica, ruszasz i kamera płynnie najeżdża na monitor. Ostatnia klatka przechodzi w zapętlone
-// tło z tej samej gry (ten sam kadr), więc nie widać szwu; na nim pojawia się logo.
-// Bez filmu (ograniczony ruch, oszczędzanie danych, brak autoodtwarzania) zostaje dawne intro:
-// kokpit BMW M4, za szybą tor i belka → czerwone → pomarańczowe → zielone = start,
+// Kolejność: kokpit BMW M4, za szybą tor i belka → czerwone → pomarańczowe → zielone = start,
 // na zegarach rośnie prędkość i biegi → po ~3,5 s kokpit znika, zostaje sam tor
 // → logo Tirenders, nawigacja, tło przygasa, przycisk „Zarezerwuj już teraz”.
 const LOGO_DELAY = COCKPIT.exitAt + 1;
 const GLOW = ["255, 34, 22", "255, 138, 0", "26, 255, 90"];
 const REV_SEGMENTS = 10;
-// cięcia w /video/intro.mp4 (s): kokpit, pedał, odpalenie, kierownica, ruszasz + najazd na monitor
-const FILM = { src: "/video/intro.mp4", srcM: "/video/intro-m.mp4", bg: "/video/intro-bg.mp4", bgM: "/video/intro-bg-m.mp4", cuts: [0, 2.0, 3.714, 5.964, 7.75], end: 11.75 };
 
 export default function Hero({ t }: { t: Dict["hero"] }) {
   const root = useRef<HTMLElement>(null);
@@ -29,8 +23,6 @@ export default function Hero({ t }: { t: Dict["hero"] }) {
   const scene = useRef<LightsScene | null>(null);
   const [gl, setGl] = useState(true);
   const [revealed, setRevealed] = useState(false);
-  const [film, setFilm] = useState(true);
-  const endFilmRef = useRef<(() => void) | null>(null);
   const revealRef = useRef<gsap.core.Timeline | null>(null);
   const logoCall = useRef<gsap.core.Tween | null>(null);
 
@@ -136,7 +128,7 @@ export default function Hero({ t }: { t: Dict["hero"] }) {
       if (Math.abs(f.glow - last.glow) > 0.004) glowEl.style.opacity = String((last.glow = f.glow) * 0.85);
     };
 
-    const startScene = async () => {
+    (async () => {
       try {
         if (!document.createElement("canvas").getContext("webgl2")) throw new Error("no webgl2");
         const img = cp.querySelector<HTMLImageElement>(`img[src="${COCKPIT.src}"]`)!;
@@ -148,112 +140,12 @@ export default function Hero({ t }: { t: Dict["hero"] }) {
         setGl(false);
         revealRef.current?.progress(1);
       }
-    };
-
-    // ---------- film: odpalenie, start i najazd na monitor ----------
-    const video = el.querySelector<HTMLVideoElement>(".hero-film");
-    const bgVideo = el.querySelector<HTMLVideoElement>(".hero-bg")!;
-    let bgStarted = false;
-    const startBg = () => {
-      if (bgStarted) return;
-      bgStarted = true;
-      bgVideo.currentTime = 0;
-      void bgVideo.play().catch(() => undefined);
-    };
-    // tło gra tylko, gdy hero jest na ekranie
-    const io = new IntersectionObserver(([e]) => {
-      if (!bgStarted) return;
-      if (e.isIntersecting) void bgVideo.play().catch(() => undefined);
-      else bgVideo.pause();
-    });
-    io.observe(el);
-    const save = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData;
-    let filmOn = !!video && !reduced && !save;
-    let raf = 0;
-    let wait: ReturnType<typeof setTimeout> | undefined;
-    const hud = el.querySelector<HTMLElement>(".film-hud");
-    const capNum = hud?.querySelector<HTMLElement>(".film-num");
-    const capTxt = hud?.querySelector<HTMLElement>(".film-step");
-    const bar = hud?.querySelector<HTMLElement>(".film-bar i");
-    let lastStep = -1;
-    const tick = () => {
-      if (!filmOn || !video || !hud) return;
-      const ft = video.currentTime;
-      let step = 0;
-      FILM.cuts.forEach((c, i) => ft >= c && (step = i));
-      if (step !== lastStep) {
-        lastStep = step;
-        hud.dataset.step = String(step);
-        capNum!.textContent = `0${step + 1}`;
-        capTxt!.textContent = t.film[step];
-        capTxt!.parentElement!.classList.remove("swap");
-        void capTxt!.offsetWidth;
-        capTxt!.parentElement!.classList.add("swap");
-      }
-      bar!.style.transform = `scaleX(${Math.min(1, ft / FILM.end).toFixed(3)})`;
-      if (ft >= FILM.end + 0.2) return endFilm(); // gdyby "ended" nie przyszło
-      raf = requestAnimationFrame(tick);
-    };
-    const endFilm = () => {
-      if (!filmOn) return;
-      filmOn = false;
-      cancelAnimationFrame(raf);
-      clearTimeout(wait);
-      // film stoi na ostatniej klatce, tło z gry rusza dokładnie od następnej i dopiero wtedy przenikamy
-      let shown = false;
-      const show = () => {
-        if (shown || disposed) return;
-        shown = true;
-        el.classList.add("film-out", "bg-on");
-        logoCall.current = gsap.delayedCall(0.35, () => void revealRef.current?.play());
-      };
-      bgVideo.addEventListener("playing", show, { once: true });
-      setTimeout(show, 400);
-      startBg();
-      setTimeout(() => {
-        video?.pause();
-        if (!disposed) setFilm(false);
-      }, 900);
-    };
-    const noFilm = () => {
-      if (!filmOn) return;
-      filmOn = false;
-      clearTimeout(wait);
-      setFilm(false);
-      void startScene();
-    };
-    endFilmRef.current = endFilm;
-    if (filmOn && video) {
-      const mp4 = video.canPlayType('video/mp4; codecs="avc1.640028"') !== "";
-      const src = mobile ? FILM.srcM : FILM.src;
-      video.src = mp4 ? src : src.replace(".mp4", ".webm");
-      const bgSrc = mobile ? FILM.bgM : FILM.bg;
-      bgVideo.src = mp4 ? bgSrc : bgSrc.replace(".mp4", ".webm");
-      bgVideo.load();
-      video.addEventListener("ended", endFilm);
-      video.addEventListener("error", noFilm);
-      video.addEventListener("playing", () => {
-        clearTimeout(wait);
-        el.classList.add("film-on");
-        cancelAnimationFrame(raf);
-        raf = requestAnimationFrame(tick);
-      });
-      // słabe łącze: jeśli film nie ruszy w 5 s, pokazujemy dawne intro
-      wait = setTimeout(noFilm, 5000);
-      video.play().catch(noFilm);
-    } else {
-      setFilm(false);
-      void startScene();
-    }
+    })();
 
     return () => {
       disposed = true;
-      filmOn = false;
-      cancelAnimationFrame(raf);
-      clearTimeout(wait);
       html.dataset.intro = "off";
       ro.disconnect();
-      io.disconnect();
       logoCall.current?.kill();
       ctx.revert();
       scene.current?.dispose();
@@ -262,7 +154,6 @@ export default function Hero({ t }: { t: Dict["hero"] }) {
   }, []);
 
   const skip = () => {
-    endFilmRef.current?.();
     scene.current?.skip();
     logoCall.current?.kill();
     revealRef.current?.progress(1);
@@ -271,7 +162,6 @@ export default function Hero({ t }: { t: Dict["hero"] }) {
   return (
     <section ref={root} className={`hero ${gl ? "" : "no-gl"}`} aria-label="Intro">
       <canvas ref={canvas} className="hero-canvas" aria-hidden="true" />
-      <video className="hero-bg" muted playsInline loop preload="auto" aria-hidden="true" />
 
       <div ref={cockpit} className="cockpit" aria-hidden="true">
         <div className="cockpit-box">
@@ -304,21 +194,6 @@ export default function Hero({ t }: { t: Dict["hero"] }) {
           </div>
         </div>
       </div>
-
-      {film && (
-        <>
-          <video className="hero-film" muted playsInline preload="auto" aria-hidden="true" />
-          <div className="film-hud" aria-hidden="true">
-            <div className="film-cap">
-              <span className="film-num">01</span>
-              <b className="film-step">{t.film[0]}</b>
-              <i className="film-bar">
-                <i />
-              </i>
-            </div>
-          </div>
-        </>
-      )}
 
       <div className="hero-dim" aria-hidden="true" />
       <div className="hero-grain" aria-hidden="true" />
