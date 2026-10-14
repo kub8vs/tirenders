@@ -1,7 +1,7 @@
 import { BOOKING, PRICES, SIMULATORS, type PriceGroup } from "@/config/site";
 
 const GROUP_LABEL: Record<PriceGroup, { pl: [string, string]; en: [string, string] }> = {
-  STANDARD: { pl: ["Karoseria", "BMW M4 F82 · Nissan 370Z"], en: ["Car body", "BMW M4 F82 · Nissan 370Z"] },
+  STANDARD: { pl: ["Karoseria", "BMW M4 F82 · BMW E46 · Nissan 370Z"], en: ["Car body", "BMW M4 F82 · BMW E46 · Nissan 370Z"] },
   GT3: { pl: ["GT3 Cockpit", "Kokpit wyścigowy"], en: ["GT3 Cockpit", "Race cockpit"] },
   MOTION5: { pl: ["Motion 5DOF", "2 platformy ruchu"], en: ["Motion 5DOF", "2 motion rigs"] },
   MOTION6: { pl: ["Motion 6DOF", "Pełne 6 stopni swobody"], en: ["Motion 6DOF", "Full 6 degrees of freedom"] },

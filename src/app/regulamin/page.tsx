@@ -18,7 +18,7 @@ export default function Page() {
       <p>Usługa jest świadczona w ściśle określonym terminie, dlatego zgodnie z art. 38 ust. 1 pkt 12 ustawy o prawach konsumenta konsumentowi nie przysługuje ustawowe prawo odstąpienia od umowy. Zasady odwołania z akapitu wyżej to dobrowolne uprawnienie przyznane przez Usługodawcę. [do potwierdzenia przez prawnika]</p>
       <h2>5. Na miejscu</h2>
       <ul>
-        <li>Prosimy o przybycie 10 minut przed startem. Spóźnienie skraca czas sesji.</li>
+        <li>Prosimy o przybycie do salonu {BOOKING.arriveEarlyMin} minut przed godziną rezerwacji. Spóźnienie skraca czas sesji.</li>
         <li>Minimalny wiek i wzrost: [do uzupełnienia]. Osoby niepełnoletnie korzystają z usługi za zgodą opiekuna.</li>
         <li>Na platformach ruchu (5DOF, 6DOF) nie mogą jeździć kobiety w ciąży, osoby z chorobami serca, kręgosłupa, epilepsją ani pod wpływem alkoholu lub środków odurzających.</li>
         <li>Obsługa może przerwać sesję, jeśli zachowanie klienta zagraża bezpieczeństwu lub sprzętowi.</li>

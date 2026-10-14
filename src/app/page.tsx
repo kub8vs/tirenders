@@ -1,6 +1,7 @@
 import Cta from "@/components/Cta";
 import Hero from "@/components/hero/Hero";
 import ColorGallery from "@/components/home/ColorGallery";
+import Reel from "@/components/home/Reel";
 import HowTrack from "@/components/home/HowTrack";
 import RigCards from "@/components/home/RigCards";
 import SectorStrip from "@/components/home/SectorStrip";
@@ -9,6 +10,8 @@ import Marquee from "@/components/Marquee";
 import PriceTable from "@/components/PriceTable";
 import Rich from "@/components/Rich";
 import Split from "@/components/Split";
+import VideoLoop from "@/components/VideoLoop";
+import { REEL } from "@/config/media";
 import { getDict, getLang, tr } from "@/lib/i18n";
 
 export default function Home() {
@@ -22,21 +25,10 @@ export default function Home() {
       <section className="section" id="start">
         <div className="wrap">
           <SectorStrip specs={d.hero.specs} />
-          <div style={{ marginTop: "clamp(90px, 12vw, 180px)" }}>
-            <p className="eyebrow" data-reveal style={{ marginBottom: 28 }}>
-              Tirenders × 2Real Simracing
-            </p>
-            <Manifesto text={h.manifesto} />
-            <p className="manifesto-body" data-reveal>
-              <Rich text={h.manifestoBody} />
-            </p>
-          </div>
         </div>
       </section>
 
-      <Marquee items={tr(l, { pl: ["Lights out", "6DOF", "Prawdziwe karoserie", "Warszawa", "Ty prowadzisz", "Od 15.11"], en: ["Lights out", "6DOF", "Real car bodies", "Warsaw", "You drive", "From 15 Nov"] })} tone="red" />
-
-      <section className="section">
+      <section className="section rigs-section">
         <div className="wrap">
           <div className="sec-head">
             <p className="eyebrow" data-reveal>{h.rigsEyebrow}</p>
@@ -46,6 +38,33 @@ export default function Home() {
             </p>
           </div>
           <RigCards lang={l} soon={h.soon} from={h.from} />
+        </div>
+      </section>
+
+      <section className="section manifesto-section">
+        <div className="bg-video" aria-hidden="true">
+          <VideoLoop clip={REEL} className="bg-video-el" />
+        </div>
+        <div className="wrap">
+          <p className="eyebrow" data-reveal style={{ marginBottom: 28 }}>
+            Tirenders × 2Real Simracing
+          </p>
+          <Manifesto text={h.manifesto} />
+          <p className="manifesto-body" data-reveal>
+            <Rich text={h.manifestoBody} />
+          </p>
+        </div>
+      </section>
+
+      <Marquee items={tr(l, { pl: ["Lights out", "6DOF", "Prawdziwe karoserie", "Warszawa", "Ty prowadzisz", "Od 15.11"], en: ["Lights out", "6DOF", "Real car bodies", "Warsaw", "You drive", "From 15 Nov"] })} tone="red" />
+
+      <section className="section">
+        <div className="wrap">
+          <div className="sec-head">
+            <p className="eyebrow" data-reveal>{h.reelEyebrow}</p>
+            <Split text={h.reelTitle} className="sec-title" />
+          </div>
+          <Reel lang={l} />
         </div>
       </section>
 

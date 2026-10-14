@@ -43,7 +43,7 @@ export function confirmationEmail(b: Booking) {
     subject: `Pole position zajęte · ${fmtDate(b.start, l, { day: "numeric", month: "long" })}, ${fmtTime(b.start)}`,
     title: "Pole position zajęte.",
     body: `Cześć ${b.name.split(" ")[0]}, Twoje stanowisko czeka.${rows(b, l)}
-<p style="margin:0 0 16px">Pokaż ten kod QR przy wejściu albo podaj kod <b style="color:#fff">${b.code}</b>. Wpadnij 10 minut wcześniej: ustawimy fotel, pedały i powiemy, gdzie hamować.</p>
+<p style="margin:0 0 16px">Pokaż ten kod QR przy wejściu albo podaj kod <b style="color:#fff">${b.code}</b>. Prosimy o przybycie do salonu <b style="color:#fff">${BOOKING.arriveEarlyMin} minut przed godziną rezerwacji</b>: ustawimy fotel, pedały i powiemy, gdzie hamować.</p>
 <p style="text-align:center;margin:24px 0"><img src="${qr}" width="180" height="180" alt="QR ${b.code}" style="background:#fff;padding:10px;border-radius:12px"></p>
 <p style="margin:0 0 22px">Odwołanie bez kosztów do ${BOOKING.freeCancelHours} h przed startem. Później możesz już tylko przełożyć termin (do ${BOOKING.rescheduleHours} h przed).</p>
 ${btn(manageUrl(b.code), "Zarządzaj rezerwacją")}`,
@@ -52,7 +52,7 @@ ${btn(manageUrl(b.code), "Zarządzaj rezerwacją")}`,
     subject: `Pole position secured · ${fmtDate(b.start, l, { day: "numeric", month: "long" })}, ${fmtTime(b.start)}`,
     title: "Pole position secured.",
     body: `Hi ${b.name.split(" ")[0]}, your rig is waiting.${rows(b, l)}
-<p style="margin:0 0 16px">Show this QR code at the door or give us the code <b style="color:#fff">${b.code}</b>. Come 10 minutes early so we can set your seat and pedals and tell you where to brake.</p>
+<p style="margin:0 0 16px">Show this QR code at the door or give us the code <b style="color:#fff">${b.code}</b>. Please arrive at the venue <b style="color:#fff">${BOOKING.arriveEarlyMin} minutes before your booking time</b> so we can set your seat and pedals and tell you where to brake.</p>
 <p style="text-align:center;margin:24px 0"><img src="${qr}" width="180" height="180" alt="QR ${b.code}" style="background:#fff;padding:10px;border-radius:12px"></p>
 <p style="margin:0 0 22px">Free cancellation up to ${BOOKING.freeCancelHours} h before the start. After that you can only reschedule (up to ${BOOKING.rescheduleHours} h before).</p>
 ${btn(manageUrl(b.code), "Manage booking")}`,

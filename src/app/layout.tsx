@@ -33,6 +33,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: "document.documentElement.classList.add('js');if(location.pathname==='/')document.documentElement.dataset.intro='on'" }} />
       </head>
       <body>
+        <div className="bg-fx" aria-hidden="true">
+          <svg className="bg-track" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice">
+            <path d="M-50 640 C 220 560 260 300 520 300 S 820 520 1000 420 1180 160 1300 120" />
+            <path d="M-50 700 C 240 620 300 360 540 360 S 840 580 1020 480 1200 220 1300 180" />
+          </svg>
+        </div>
         <Providers>
           <Header t={d} lang={lang} />
           <main>{children}</main>

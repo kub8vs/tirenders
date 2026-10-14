@@ -200,7 +200,7 @@ export default function Hero({ t }: { t: Dict["hero"] }) {
 
         <div className="hero-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="hero-logo" src="/img/tirenders-logo.webp" alt="Tirenders" width={1400} height={796} />
+          <img className="hero-logo" src="/img/2real-logo.webp" alt="2Real Simracing by Tirenders" width={1109} height={384} />
           <p className="tagline">{t.tagline}</p>
           <Cta href="/rezerwacja" big className="hero-cta">
             {t.cta}

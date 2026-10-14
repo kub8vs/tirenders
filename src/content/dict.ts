@@ -3,7 +3,7 @@
 const pl = {
   meta: {
     title: "Tirenders × 2Real Simracing · Warszawa",
-    description: "Pierwszy w Polsce salon sim racingu w prawdziwych karoseriach aut. 6 stanowisk, platformy ruchu 5DOF i 6DOF. Warszawa, od 15.11.",
+    description: "Pierwszy w Polsce salon sim racingu w prawdziwych karoseriach aut. 7 stanowisk, platformy ruchu 5DOF i 6DOF. Warszawa, od 15.11.",
   },
   nav: { offer: "Oferta", pricing: "Cennik", booking: "Rezerwacja", shop: "Sklep", about: "O nas", faq: "FAQ" },
   pill: { status: "Otwarcie 15.11", city: "Warszawa" },
@@ -11,9 +11,9 @@ const pl = {
   hero: {
     srTitle: "Tirenders × 2Real Simracing – sim racing w prawdziwych karoseriach, Warszawa",
     specs: [
-      ["S1", "6", "stanowisk", "Swoje wybierasz na planie salonu"],
+      ["S1", "7", "stanowisk", "Swoje wybierasz na planie salonu"],
       ["S2", "6DOF", "ruch", "2× 5DOF i 1× 6DOF. Czujesz każdy krawężnik"],
-      ["S3", "2", "karoserie", "Prawdziwe BMW M4 F82 i Nissan 370Z"],
+      ["S3", "3", "karoserie", "Prawdziwe BMW M4 F82, BMW E46 i Nissan 370Z"],
     ],
     tagline: "Pierwszy taki pit lane w Polsce. Warszawa, od 15.11.",
     cta: "Zarezerwuj już teraz",
@@ -26,15 +26,17 @@ const pl = {
     manifestoBody:
       "Siadasz w *prawdziwym BMW M4*. Kierownica z auta, pedały, które stawiają opór, i platforma, która rzuca Tobą na krawężnikach. *Nigdzie indziej w Polsce.*",
     stats: [
-      ["6", "stanowisk w salonie"],
+      ["7", "stanowisk w salonie"],
       ["3", "platformy ruchu: 2× 5DOF, 1× 6DOF"],
-      ["2", "pełne karoserie: BMW M4 F82 i Nissan 370Z"],
+      ["3", "pełne karoserie: BMW M4 F82, BMW E46 i Nissan 370Z"],
     ],
     rigsEyebrow: "Stanowiska",
     rigsTitle: "Wybierz, *czym jedziesz.*",
     rigsLead: "Każde stanowisko rezerwujesz osobno. *Ty wybierasz miejsce* na planie salonu.",
     from: "od",
     soon: "Wkrótce",
+    reelEyebrow: "W akcji",
+    reelTitle: "Z toru *prosto do salonu.*",
     howEyebrow: "Jak to działa",
     howTitle: "Od kliknięcia do startu: *2 minuty.*",
     steps: [
@@ -53,7 +55,7 @@ const pl = {
     shopLead: "Kierownice z *prawdziwych aut*. Najpierw testujesz u nas, potem kupujesz. Na otwarciu także *merch Himery.*",
     shopCta: "Zobacz sklep",
     finalTitle: "Pierwszy taki *pit lane* w Polsce.",
-    finalLead: "Warszawa, od 15.11. *Zajmij slot*, zanim zrobią to inni.",
+    finalLead: "Warszawa, od 15.11. *Umów swoją jazdę*, zanim zrobią to inni.",
   },
   footer: {
     rights: "Wszystkie prawa zastrzeżone.",
@@ -71,7 +73,7 @@ type Dict = typeof pl;
 const en: Dict = {
   meta: {
     title: "Tirenders × 2Real Simracing · Warsaw",
-    description: "Poland's first sim racing venue built inside real car bodies. 6 rigs, 5DOF and 6DOF motion platforms. Warsaw, from 15 Nov.",
+    description: "Poland's first sim racing venue built inside real car bodies. 7 rigs, 5DOF and 6DOF motion platforms. Warsaw, from 15 Nov.",
   },
   nav: { offer: "Offer", pricing: "Pricing", booking: "Book", shop: "Shop", about: "About", faq: "FAQ" },
   pill: { status: "Opening 15 Nov", city: "Warsaw" },
@@ -79,9 +81,9 @@ const en: Dict = {
   hero: {
     srTitle: "Tirenders × 2Real Simracing – sim racing inside real car bodies, Warsaw",
     specs: [
-      ["S1", "6", "rigs", "Pick yours on the venue map"],
+      ["S1", "7", "rigs", "Pick yours on the venue map"],
       ["S2", "6DOF", "motion", "2× 5DOF and 1× 6DOF. Feel every kerb"],
-      ["S3", "2", "car bodies", "A real BMW M4 F82 and Nissan 370Z"],
+      ["S3", "3", "car bodies", "A real BMW M4 F82, BMW E46 and Nissan 370Z"],
     ],
     tagline: "Poland's first pit lane of its kind. Warsaw, from 15 Nov.",
     cta: "Book now",
@@ -94,15 +96,17 @@ const en: Dict = {
     manifestoBody:
       "You sit in a *real BMW M4*. A wheel from the car, pedals that push back and a platform that throws you around on the kerbs. *Nowhere else in Poland.*",
     stats: [
-      ["6", "rigs in the venue"],
+      ["7", "rigs in the venue"],
       ["3", "motion platforms: 2× 5DOF, 1× 6DOF"],
-      ["2", "full car bodies: BMW M4 F82 and Nissan 370Z"],
+      ["3", "full car bodies: BMW M4 F82, BMW E46 and Nissan 370Z"],
     ],
     rigsEyebrow: "Rigs",
     rigsTitle: "Pick *your ride.*",
     rigsLead: "Every rig is booked on its own. *You pick the seat* on the venue map.",
     from: "from",
     soon: "Soon",
+    reelEyebrow: "In action",
+    reelTitle: "From the track *to the venue.*",
     howEyebrow: "How it works",
     howTitle: "From click to lights out: *2 minutes.*",
     steps: [
@@ -121,7 +125,7 @@ const en: Dict = {
     shopLead: "Wheels made from *real car wheels*. Try them here first, then buy. At the opening, *Himera merch* too.",
     shopCta: "See the shop",
     finalTitle: "Poland's first *pit lane* of its kind.",
-    finalLead: "Warsaw, from 15 Nov. *Grab your slot* before someone else does.",
+    finalLead: "Warsaw, from 15 Nov. *Book your drive* before someone else does.",
   },
   footer: {
     rights: "All rights reserved.",

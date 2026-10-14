@@ -5,11 +5,12 @@ import bcrypt from "bcryptjs";
 const prisma = new PrismaClient();
 const sims = [
   ["bmw-m4", "BMW M4 F82", "STANDARD", "ACTIVE", 1],
-  ["dof5-a", "Motion 5DOF #1", "MOTION5", "ACTIVE", 2],
-  ["dof5-b", "Motion 5DOF #2", "MOTION5", "ACTIVE", 3],
-  ["dof6", "Motion 6DOF", "MOTION6", "ACTIVE", 4],
-  ["gt3", "GT3 Cockpit", "GT3", "ACTIVE", 5],
-  ["nissan-370z", "Nissan 370Z", "STANDARD", "COMING_SOON", 6],
+  ["bmw-e46", "BMW E46", "STANDARD", "ACTIVE", 2],
+  ["dof5-a", "Motion 5DOF #1", "MOTION5", "ACTIVE", 3],
+  ["dof5-b", "Motion 5DOF #2", "MOTION5", "ACTIVE", 4],
+  ["dof6", "Motion 6DOF", "MOTION6", "ACTIVE", 5],
+  ["gt3", "GT3 Cockpit", "GT3", "ACTIVE", 6],
+  ["nissan-370z", "Nissan 370Z", "STANDARD", "COMING_SOON", 7],
 ];
 for (const [id, name, priceGroup, status, sortOrder] of sims) {
   await prisma.simulator.upsert({ where: { id }, update: { name, priceGroup, status, sortOrder }, create: { id, name, priceGroup, status, sortOrder } });

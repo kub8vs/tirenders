@@ -15,9 +15,9 @@ const SLOGANS = [
 ];
 
 const NUMBERS = [
-  ["6", { pl: "stanowisk", en: "rigs" }],
+  ["7", { pl: "stanowisk", en: "rigs" }],
   ["3", { pl: "platformy ruchu", en: "motion platforms" }],
-  ["2", { pl: "prawdziwe karoserie", en: "real car bodies" }],
+  ["3", { pl: "prawdziwe karoserie", en: "real car bodies" }],
   ["0", { pl: "nudy", en: "boredom" }],
 ] as const;
 

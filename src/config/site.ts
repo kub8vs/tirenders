@@ -37,19 +37,22 @@ export const BOOKING = {
   minLeadMin: 60, // najpóźniej godzinę przed
   maxDaysAhead: 14, // maks. 2 tygodnie do przodu
   holdMin: 10, // tyle czasu slot czeka na płatność
-  freeCancelHours: 24,
-  rescheduleHours: 3,
+  freeCancelHours: 12, // > 12 h przed: odwołanie i zwrot 100%
+  rescheduleHours: 2, // 12–2 h przed: tylko zmiana terminu; < 2 h: nic
+  arriveEarlyMin: 15, // prosimy być w salonie 15 min przed startem
 };
 
 export type PriceGroup = "STANDARD" | "GT3" | "MOTION5" | "MOTION6";
 export type Duration = (typeof BOOKING.durations)[number];
 
 // TODO: ceny przykładowe (ankieta: „ustal przykładowe ceny”). Kwoty brutto w PLN.
+// Rękawiczki (5 zł) są już wliczone w każdą cenę (klient, 14.10.2026).
+export const GLOVES_PRICE = 5;
 export const PRICES: Record<PriceGroup, Record<Duration, number>> = {
-  STANDARD: { 15: 39, 30: 69, 45: 99, 60: 129, 90: 179 },
-  GT3: { 15: 45, 30: 79, 45: 115, 60: 149, 90: 209 },
-  MOTION5: { 15: 49, 30: 89, 45: 129, 60: 169, 90: 239 },
-  MOTION6: { 15: 59, 30: 105, 45: 149, 60: 199, 90: 279 },
+  STANDARD: { 15: 44, 30: 74, 45: 104, 60: 134, 90: 184 },
+  GT3: { 15: 50, 30: 84, 45: 120, 60: 154, 90: 214 },
+  MOTION5: { 15: 54, 30: 94, 45: 134, 60: 174, 90: 244 },
+  MOTION6: { 15: 64, 30: 110, 45: 154, 60: 204, 90: 284 },
 };
 
 export type SimDef = {
@@ -63,14 +66,15 @@ export type SimDef = {
   plan: { x: number; y: number; r: number };
 };
 
-// 6 stanowisk wg Tirenders (10.10.2026).
+// 7 stanowisk wg Tirenders (14.10.2026): BMW E46 dołączyło jako trzecia karoseria.
 export const SIMULATORS: SimDef[] = [
-  { id: "bmw-m4", name: "BMW M4 F82", body: { pl: "Pełna karoseria BMW M4 F82, oryginalny kokpit", en: "Full BMW M4 F82 body, original cockpit" }, priceGroup: "STANDARD", status: "ACTIVE", dof: null, plan: { x: 18, y: 28, r: -8 } },
-  { id: "dof5-a", name: "Motion 5DOF #1", body: { pl: "Platforma ruchu 5DOF: czujesz każdy krawężnik", en: "5DOF motion platform: feel every kerb" }, priceGroup: "MOTION5", status: "ACTIVE", dof: 5, plan: { x: 40, y: 22, r: 0 } },
-  { id: "dof5-b", name: "Motion 5DOF #2", body: { pl: "Druga platforma 5DOF: ścigaj się z kumplem obok", en: "Second 5DOF rig: race your mate side by side" }, priceGroup: "MOTION5", status: "ACTIVE", dof: 5, plan: { x: 60, y: 22, r: 0 } },
-  { id: "dof6", name: "Motion 6DOF", body: { pl: "Pełne 6 stopni swobody. Najmocniejsze stanowisko w salonie", en: "Full 6 degrees of freedom. The heaviest hitter in the room" }, priceGroup: "MOTION6", status: "ACTIVE", dof: 6, plan: { x: 82, y: 28, r: 8 } },
-  { id: "gt3", name: "GT3 Cockpit", body: { pl: "Kokpit wyścigowy GT3: kubeł, pasy, kierownica formułowa", en: "GT3 race cockpit: bucket seat, harness, formula wheel" }, priceGroup: "GT3", status: "ACTIVE", dof: null, plan: { x: 32, y: 70, r: -4 } },
-  { id: "nissan-370z", name: "Nissan 370Z", body: { pl: "Pełna karoseria Nissana 370Z (w budowie)", en: "Full Nissan 370Z body (being built)" }, priceGroup: "STANDARD", status: "COMING_SOON", dof: null, plan: { x: 68, y: 70, r: 4 } },
+  { id: "bmw-m4", name: "BMW M4 F82", body: { pl: "Pełna karoseria BMW M4 F82, oryginalny kokpit", en: "Full BMW M4 F82 body, original cockpit" }, priceGroup: "STANDARD", status: "ACTIVE", dof: null, plan: { x: 13, y: 26, r: -8 } },
+  { id: "bmw-e46", name: "BMW E46", body: { pl: "Pełna karoseria BMW E46, oryginalny kokpit", en: "Full BMW E46 body, original cockpit" }, priceGroup: "STANDARD", status: "ACTIVE", dof: null, plan: { x: 18, y: 64, r: -4 } },
+  { id: "dof5-a", name: "Motion 5DOF #1", body: { pl: "Platforma ruchu 5DOF: czujesz każdy krawężnik", en: "5DOF motion platform: feel every kerb" }, priceGroup: "MOTION5", status: "ACTIVE", dof: 5, plan: { x: 37, y: 22, r: 0 } },
+  { id: "dof5-b", name: "Motion 5DOF #2", body: { pl: "Druga platforma 5DOF: ścigaj się z kumplem obok", en: "Second 5DOF rig: race your mate side by side" }, priceGroup: "MOTION5", status: "ACTIVE", dof: 5, plan: { x: 62, y: 22, r: 0 } },
+  { id: "dof6", name: "Motion 6DOF", body: { pl: "Pełne 6 stopni swobody. Najmocniejsze stanowisko w salonie", en: "Full 6 degrees of freedom. The heaviest hitter in the room" }, priceGroup: "MOTION6", status: "ACTIVE", dof: 6, plan: { x: 87, y: 26, r: 8 } },
+  { id: "gt3", name: "GT3 Cockpit", body: { pl: "Kokpit wyścigowy GT3: kubeł, pasy, kierownica formułowa", en: "GT3 race cockpit: bucket seat, harness, formula wheel" }, priceGroup: "GT3", status: "ACTIVE", dof: null, plan: { x: 50, y: 62, r: 0 } },
+  { id: "nissan-370z", name: "Nissan 370Z", body: { pl: "Pełna karoseria Nissana 370Z (w budowie)", en: "Full Nissan 370Z body (being built)" }, priceGroup: "STANDARD", status: "COMING_SOON", dof: null, plan: { x: 82, y: 64, r: 4 } },
 ];
 
 export const simById = (id: string) => SIMULATORS.find((s) => s.id === id);

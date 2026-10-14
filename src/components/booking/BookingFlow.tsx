@@ -13,6 +13,7 @@ const T = {
     step1: "Ile jedziesz?",
     longer: "Dłużej niż 90 min albo cały salon na wyłączność? Zadzwoń:",
     step2: "Kiedy?",
+    pickHour: "Godzina",
     closed: "zamknięte",
     step3: "O której?",
     noSlots: "Na ten dzień nie ma już wolnych terminów. Wybierz inny dzień.",
@@ -29,7 +30,7 @@ const T = {
     codeBad: "Ten kod nie działa albo wygasł",
     terms1: "Akceptuję ",
     terms2: "regulamin",
-    terms3: " i zasady odwołania: bez kosztów do 24 h przed, później tylko zmiana terminu (do 3 h przed).",
+    terms3: ` i zasady odwołania: bez kosztów do ${BOOKING.freeCancelHours} h przed, później tylko zmiana terminu (do ${BOOKING.rescheduleHours} h przed).`,
     summary: "Podsumowanie",
     pay: "Przejdź do płatności",
     paying: "Łączę z płatnością…",
@@ -50,6 +51,7 @@ const T = {
     step1: "How long are you driving?",
     longer: "Longer than 90 min or the whole venue to yourself? Call us:",
     step2: "When?",
+    pickHour: "Time",
     closed: "closed",
     step3: "What time?",
     noSlots: "No free slots left on this day. Pick another day.",
@@ -66,7 +68,7 @@ const T = {
     codeBad: "This code doesn't work or has expired",
     terms1: "I accept the ",
     terms2: "terms",
-    terms3: " and the cancellation policy: free up to 24 h before, after that reschedule only (up to 3 h before).",
+    terms3: ` and the cancellation policy: free up to ${BOOKING.freeCancelHours} h before, after that reschedule only (up to ${BOOKING.rescheduleHours} h before).`,
     summary: "Summary",
     pay: "Continue to payment",
     paying: "Connecting to payment…",
@@ -199,9 +201,6 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
               </button>
             ))}
           </div>
-          <p className="hint">
-            {t.longer} <b>{SITE.phone ?? (lang === "pl" ? "numer wkrótce" : "number coming soon")}</b>
-          </p>
         </section>
 
         <section className="bk-step">
@@ -221,13 +220,7 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
               );
             })}
           </div>
-        </section>
-
-        <section className="bk-step">
-          <h2>
-            <span>03</span>
-            {t.step3}
-          </h2>
+          <p className="bk-sub">{t.pickHour}</p>
           {slots === null ? (
             <p className="hint">{t.loading}</p>
           ) : visibleSlots.length === 0 ? (
@@ -257,7 +250,7 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
 
         <section className="bk-step">
           <h2>
-            <span>04</span>
+            <span>03</span>
             {t.step4}
           </h2>
           {!slot && <p className="hint">{t.pickTime}</p>}
@@ -269,7 +262,7 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
 
         <section className="bk-step">
           <h2>
-            <span>05</span>
+            <span>04</span>
             {t.step5}
           </h2>
           {!signedIn && (
@@ -356,12 +349,15 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
           </button>
           <p className="hint" style={{ fontSize: 12.5 }}>{t.hold}</p>
           <p className="hint" style={{ fontSize: 12.5 }}>{t.methods}</p>
+          <p className="hint" style={{ fontSize: 12.5 }}>
+            {t.longer} <b>{SITE.phone ?? (lang === "pl" ? "numer wkrótce" : "number coming soon")}</b>
+          </p>
         </div>
       </aside>
 
       <style jsx>{`
         .bk { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 340px); gap: clamp(24px, 4vw, 64px); align-items: start; }
-        .bk-main { display: grid; gap: 56px; min-width: 0; grid-template-columns: minmax(0, 1fr); }
+        .bk-main { display: grid; gap: 48px; min-width: 0; grid-template-columns: minmax(0, 1fr); }
         .bk-step { min-width: 0; }
         .bk-plan { max-width: 560px; }
         .bk-step h2 { font-size: clamp(24px, 2.4vw, 34px); display: flex; gap: 16px; align-items: baseline; margin-bottom: 22px; }
@@ -372,6 +368,7 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
         .opt.on { background: #fff; color: #000; border-color: #fff; }
         .opt.on b { color: #000; }
         .hint { color: var(--muted); font-size: 14px; margin-top: 14px; }
+        .bk-sub { margin: 26px 0 12px; font-size: 12px; letter-spacing: .2em; text-transform: uppercase; color: var(--muted); }
         .hint b { color: #ddd; font-weight: 500; }
         .days { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; scrollbar-width: thin; }
         .day { flex: 0 0 auto; width: 74px; height: 92px; border-radius: 16px; border: 1px solid var(--line-2); background: #090909; display: grid; place-items: center; align-content: center; gap: 2px; cursor: pointer; }

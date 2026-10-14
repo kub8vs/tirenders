@@ -3,7 +3,10 @@
 import { useEffect, useRef } from "react";
 import Cta from "@/components/Cta";
 import Rich from "@/components/Rich";
-import { BOOKING, SITE } from "@/config/site";
+import { BOOKING, GLOVES_PRICE, SITE } from "@/config/site";
+
+const F = BOOKING.freeCancelHours;
+const R = BOOKING.rescheduleHours;
 
 const T = {
   pl: {
@@ -12,16 +15,16 @@ const T = {
     free: [
       ["Ustawienie fotela i pedałów", "0 zł"],
       ["Briefing: gdzie hamować", "0 zł"],
-      ["Rękawiczki i sprzęt", "0 zł"],
+      ["Rękawiczki", `${GLOVES_PRICE} zł, już w cenie`],
     ],
     cancelTitle: "Odwołanie i zmiana terminu",
     cancelLead: "Jak światła na starcie: zielone, żółte, czerwone.",
     zones: [
-      ["green", "Więcej niż 24 h przed", "Odwołujesz za darmo. Oddajemy 100%."],
-      ["amber", "24 h – 3 h przed", "Nie odwołasz, ale przełożysz termin bez dopłat."],
-      ["red", "Mniej niż 3 h", "Termin jest Twój. Zmiany już nie są możliwe."],
+      ["green", `Więcej niż ${F} h przed`, "Odwołujesz za darmo. Oddajemy 100%."],
+      ["amber", `${F} h – ${R} h przed`, "Nie odwołasz, ale przełożysz termin bez dopłat."],
+      ["red", `Mniej niż ${R} h`, "Nie da się już odwołać ani przełożyć rezerwacji."],
     ],
-    marks: ["Rezerwacja", "−24 h", "−3 h", "Start"],
+    marks: ["Rezerwacja", `−${F} h`, `−${R} h`, "Start"],
     methodsTitle: "Płacisz od razu, online",
     hold: "Tyle trzymamy Twój termin, zanim wróci do puli",
     min: "min",
@@ -36,16 +39,16 @@ const T = {
     free: [
       ["Seat and pedal setup", "0 zł"],
       ["Briefing: where to brake", "0 zł"],
-      ["Gloves and gear", "0 zł"],
+      ["Gloves", `${GLOVES_PRICE} zł, already included`],
     ],
     cancelTitle: "Cancelling and rescheduling",
     cancelLead: "Like the start lights: green, amber, red.",
     zones: [
-      ["green", "More than 24 h before", "Cancel for free. 100% back."],
-      ["amber", "24 h – 3 h before", "No cancelling, but you can reschedule at no cost."],
-      ["red", "Less than 3 h", "The slot is yours. No more changes."],
+      ["green", `More than ${F} h before`, "Cancel for free. 100% back."],
+      ["amber", `${F} h – ${R} h before`, "No cancelling, but you can reschedule at no cost."],
+      ["red", `Less than ${R} h`, "The booking can no longer be cancelled or moved."],
     ],
-    marks: ["Booking", "−24 h", "−3 h", "Start"],
+    marks: ["Booking", `−${F} h`, `−${R} h`, "Start"],
     methodsTitle: "Pay right away, online",
     hold: "How long we hold your slot before it goes back to the pool",
     min: "min",

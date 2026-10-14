@@ -50,7 +50,7 @@ export default function Header({ t, lang }: { t: Dict; lang: Lang }) {
       <header className="site-header" data-header>
         <Link href="/" className="logo" aria-label="Tirenders, strona główna">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/img/tirenders-logo-sm.webp" alt="Tirenders" width={360} height={205} />
+          <img src="/img/2real-logo-sm.webp" alt="2Real Simracing by Tirenders" width={360} height={125} />
         </Link>
         <nav className="nav-pill" aria-label="Główna nawigacja">
           {links.map(([href, label]) => (
