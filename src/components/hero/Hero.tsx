@@ -7,12 +7,30 @@ import type { Dict } from "@/content/dict";
 import { COCKPIT, cockpitBox } from "./cockpit";
 import type { LightsFrame, LightsScene } from "./lightsScene";
 
-// Kolejność: kokpit BMW M4, za szybą tor i belka → czerwone → pomarańczowe → zielone = start,
+// Najpierw film z prawdziwego BMW M4 F82 (nagrania klienta): podchodzisz, wsiadasz, zamykasz drzwi,
+// start silnika (wskazówki robią przegląd), jedynka, ruszasz. Po filmie błysk i nocny tor WebGL z logo.
+// Bez filmu (ograniczony ruch, oszczędzanie danych, brak autoodtwarzania) zostaje dawne intro:
+// kokpit BMW M4, za szybą tor i belka → czerwone → pomarańczowe → zielone = start,
 // na zegarach rośnie prędkość i biegi → po ~3,5 s kokpit znika, zostaje sam tor
 // → logo Tirenders, nawigacja, tło przygasa, przycisk „Zarezerwuj już teraz”.
 const LOGO_DELAY = COCKPIT.exitAt + 1;
 const GLOW = ["255, 34, 22", "255, 138, 0", "26, 255, 90"];
 const REV_SEGMENTS = 10;
+// cięcia w /video/intro.mp4 (s): auto, wsiadanie, drzwi, deska, bieg, ruszanie
+const FILM = { src: "/video/intro.mp4", srcM: "/video/intro-m.mp4", cuts: [0, 1.6, 3.446, 4.279, 5.779, 6.779], end: 9.58, ignite: 4.55, gear1: 6.3, gear2: 8.4 };
+const ease = (x: number) => 1 - Math.pow(1 - Math.min(1, Math.max(0, x)), 3);
+// obroty (×1000) w czasie filmu: przegląd wskazówek przy starcie, wolne obroty, ruszanie
+function filmRpm(t: number) {
+  const { ignite, gear1, gear2 } = FILM;
+  if (t < ignite) return 0;
+  if (t < ignite + 0.45) return 8 * ease((t - ignite) / 0.45);
+  if (t < ignite + 1.05) return 8 - 7.1 * ease((t - ignite - 0.45) / 0.6);
+  if (t < gear1 + 0.4) return 0.9 + Math.sin(t * 23) * 0.04;
+  if (t < gear2) return 0.9 + 4.6 * ease((t - gear1 - 0.4) / (gear2 - gear1 - 0.4));
+  if (t < gear2 + 0.25) return 5.5 - 2 * ((t - gear2) / 0.25);
+  return 3.5 + 1.6 * ease((t - gear2 - 0.25) / 1.2);
+}
+const filmSpeed = (t: number) => (t < FILM.gear1 + 0.4 ? 0 : 62 * ease((t - FILM.gear1 - 0.4) / (FILM.end - FILM.gear1)));
 
 export default function Hero({ t }: { t: Dict["hero"] }) {
   const root = useRef<HTMLElement>(null);
@@ -21,6 +39,8 @@ export default function Hero({ t }: { t: Dict["hero"] }) {
   const scene = useRef<LightsScene | null>(null);
   const [gl, setGl] = useState(true);
   const [revealed, setRevealed] = useState(false);
+  const [film, setFilm] = useState(true);
+  const endFilmRef = useRef<(() => void) | null>(null);
   const revealRef = useRef<gsap.core.Timeline | null>(null);
   const logoCall = useRef<gsap.core.Tween | null>(null);
 
@@ -66,9 +86,10 @@ export default function Hero({ t }: { t: Dict["hero"] }) {
       revealRef.current = reveal;
     }, el);
 
+    let afterFilm = false;
     const launch = () => {
       if (reduced) revealRef.current?.progress(1);
-      else logoCall.current = gsap.delayedCall(LOGO_DELAY, () => void revealRef.current?.play());
+      else logoCall.current = gsap.delayedCall(afterFilm ? 0.35 : LOGO_DELAY, () => void revealRef.current?.play());
     };
 
     // zegary w aucie i kokpit sterowane z pętli sceny, bez re-renderów Reacta
@@ -125,22 +146,122 @@ export default function Hero({ t }: { t: Dict["hero"] }) {
       if (Math.abs(f.glow - last.glow) > 0.004) glowEl.style.opacity = String((last.glow = f.glow) * 0.85);
     };
 
-    (async () => {
+    const startScene = async (fromFilm: boolean) => {
+      afterFilm = fromFilm;
       try {
         if (!document.createElement("canvas").getContext("webgl2")) throw new Error("no webgl2");
         const img = cp.querySelector<HTMLImageElement>(`img[src="${COCKPIT.src}"]`)!;
-        const ready = img.decode().catch(() => undefined);
+        const ready = fromFilm ? undefined : img.decode().catch(() => undefined);
         const [{ LightsScene }] = await Promise.all([import("./lightsScene"), Promise.race([ready, new Promise((r) => setTimeout(r, 2500))])]);
         if (disposed) return;
         scene.current = new LightsScene(canvas.current!, { mobile, reducedMotion: reduced, onLaunch: launch, onFrame });
+        // po filmie od razu jedziemy nocnym torem, bez drugiego startu ze świateł
+        if (fromFilm) scene.current.skip();
       } catch {
         setGl(false);
         revealRef.current?.progress(1);
       }
-    })();
+    };
+
+    // ---------- film: wsiadanie i start ----------
+    const video = el.querySelector<HTMLVideoElement>(".hero-film");
+    const save = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData;
+    let filmOn = !!video && !reduced && !save;
+    let raf = 0;
+    let wait: ReturnType<typeof setTimeout> | undefined;
+    const hud = el.querySelector<HTMLElement>(".film-hud");
+    const capNum = hud?.querySelector<HTMLElement>(".film-num");
+    const capTxt = hud?.querySelector<HTMLElement>(".film-step");
+    const bar = hud?.querySelector<HTMLElement>(".film-bar i");
+    const gFg = hud?.querySelector<SVGCircleElement>(".g-fg");
+    const gNeedle = hud?.querySelector<SVGGElement>(".g-needle");
+    const gRpm = hud?.querySelector<HTMLElement>(".g-rpm");
+    const gGear = hud?.querySelector<HTMLElement>(".g-gear b");
+    const gSpeed = hud?.querySelector<HTMLElement>(".g-speed b");
+    const fl = { step: -1, gear: "", speed: "", ign: false };
+    const tick = () => {
+      if (!filmOn || !video || !hud) return;
+      const ft = video.currentTime;
+      let step = 0;
+      FILM.cuts.forEach((c, i) => ft >= c && (step = i));
+      if (step !== fl.step) {
+        fl.step = step;
+        hud.dataset.step = String(step);
+        capNum!.textContent = `0${step + 1}`;
+        capTxt!.textContent = t.film[step];
+        capTxt!.parentElement!.classList.remove("swap");
+        void capTxt!.offsetWidth;
+        capTxt!.parentElement!.classList.add("swap");
+      }
+      bar!.style.transform = `scaleX(${Math.min(1, ft / FILM.end).toFixed(3)})`;
+      if (!fl.ign && ft >= FILM.ignite) {
+        fl.ign = true;
+        hud.classList.add("ignite");
+        video.classList.add("ignite");
+      }
+      const rpm = filmRpm(ft);
+      gFg!.style.strokeDasharray = `${((rpm / 8) * 75).toFixed(2)} 100`;
+      gNeedle!.style.transform = `rotate(${(-135 + (rpm / 8) * 270).toFixed(1)}deg)`;
+      gRpm!.textContent = rpm.toFixed(1);
+      const gear = ft < FILM.gear1 ? "N" : ft < FILM.gear2 ? "1" : "2";
+      if (gear !== fl.gear) {
+        fl.gear = gear;
+        gGear!.textContent = gear;
+        gGear!.parentElement!.classList.remove("shift");
+        void gGear!.offsetWidth;
+        if (gear !== "N") gGear!.parentElement!.classList.add("shift");
+      }
+      const sp = String(Math.round(filmSpeed(ft)));
+      if (sp !== fl.speed) gSpeed!.textContent = fl.speed = sp;
+      if (ft >= FILM.end - 0.3) return endFilm();
+      raf = requestAnimationFrame(tick);
+    };
+    const endFilm = () => {
+      if (!filmOn) return;
+      filmOn = false;
+      cancelAnimationFrame(raf);
+      clearTimeout(wait);
+      el.classList.add("film-out");
+      void startScene(true);
+      setTimeout(() => {
+        video?.pause();
+        if (!disposed) setFilm(false);
+      }, 1100);
+    };
+    const noFilm = () => {
+      if (!filmOn) return;
+      filmOn = false;
+      clearTimeout(wait);
+      setFilm(false);
+      void startScene(false);
+    };
+    endFilmRef.current = endFilm;
+    if (filmOn && video) {
+      const mp4 = video.canPlayType('video/mp4; codecs="avc1.640028"') !== "";
+      const src = mobile ? FILM.srcM : FILM.src;
+      video.src = mp4 ? src : src.replace(".mp4", ".webm");
+      video.addEventListener("ended", endFilm);
+      video.addEventListener("error", noFilm);
+      video.addEventListener("playing", () => {
+        clearTimeout(wait);
+        el.classList.add("film-on");
+        cancelAnimationFrame(raf);
+        raf = requestAnimationFrame(tick);
+      });
+      // słabe łącze: jeśli film nie ruszy w 5 s, pokazujemy dawne intro
+      wait = setTimeout(noFilm, 5000);
+      video.play().catch(noFilm);
+      void import("./lightsScene");
+    } else {
+      setFilm(false);
+      void startScene(false);
+    }
 
     return () => {
       disposed = true;
+      filmOn = false;
+      cancelAnimationFrame(raf);
+      clearTimeout(wait);
       html.dataset.intro = "off";
       ro.disconnect();
       logoCall.current?.kill();
@@ -151,6 +272,7 @@ export default function Hero({ t }: { t: Dict["hero"] }) {
   }, []);
 
   const skip = () => {
+    endFilmRef.current?.();
     scene.current?.skip();
     logoCall.current?.kill();
     revealRef.current?.progress(1);
@@ -191,6 +313,48 @@ export default function Hero({ t }: { t: Dict["hero"] }) {
           </div>
         </div>
       </div>
+
+      {film && (
+        <>
+          <video className="hero-film" muted playsInline preload="auto" aria-hidden="true" />
+          <div className="film-hud" aria-hidden="true">
+            <div className="film-cap">
+              <span className="film-num">01</span>
+              <b className="film-step">{t.film[0]}</b>
+              <i className="film-bar">
+                <i />
+              </i>
+            </div>
+            <div className="film-gauge">
+              <svg viewBox="0 0 120 120">
+                <circle cx="60" cy="60" r="50" pathLength={100} className="g-bg" />
+                <circle cx="60" cy="60" r="50" pathLength={100} className="g-red" />
+                <circle cx="60" cy="60" r="50" pathLength={100} className="g-fg" />
+                <g className="g-needle">
+                  <line x1="60" y1="60" x2="60" y2="16" />
+                </g>
+                <circle cx="60" cy="60" r="4" fill="#fff" />
+              </svg>
+              <div className="g-read">
+                <b className="g-rpm">0.0</b>
+                <small>×1000 rpm</small>
+              </div>
+              <div className="g-gear">
+                <b>N</b>
+              </div>
+              <div className="g-speed">
+                <b>0</b>
+                <small>km/h</small>
+              </div>
+            </div>
+            <div className="film-start">
+              <b>Engine</b>
+              <span>Start · Stop</span>
+            </div>
+          </div>
+          <div className="film-flash" aria-hidden="true" />
+        </>
+      )}
 
       <div className="hero-dim" aria-hidden="true" />
       <div className="hero-grain" aria-hidden="true" />
