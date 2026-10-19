@@ -2,6 +2,16 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { BOOKING, HOURS } from "@/config/site";
+
+/** Godziny startu co 15 min w godzinach otwarcia danego dnia, w zapisie 24-godzinnym (17:00, 17:15…). */
+function startTimes(date: string) {
+  const h = HOURS[new Date(`${date}T12:00:00Z`).getUTCDay()] ?? { open: "10:00", close: "24:00" };
+  const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+  const out: string[] = [];
+  for (let m = toMin(h.open); m + 15 <= toMin(h.close); m += BOOKING.slotStepMin) out.push(`${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`);
+  return out;
+}
 
 // Rezerwacje telefoniczne (powyżej 90 min = kilka bloków, wyłączność = wszystkie stanowiska).
 // Domyślnie klient dostaje SMS i mail z linkiem do zapłaty na stronie; termin jest zablokowany od razu.
@@ -47,7 +57,9 @@ export default function PhoneBooking({ date, sims }: { date: string; sims: { id:
         <button type="button" className="chip" onClick={() => setF({ ...f, sims: sims.map((s) => s.id) })}>Cały salon</button>
       </div>
       <div className="form-grid">
-        <div className="field"><label htmlFor="pb-time">Godzina ({date})</label><input id="pb-time" className="input" type="time" step={900} value={f.time} onChange={(e) => setF({ ...f, time: e.target.value })} /></div>
+        <div className="field"><label htmlFor="pb-time">Godzina ({date})</label><select id="pb-time" className="input" value={f.time} onChange={(e) => setF({ ...f, time: e.target.value })}>
+            {startTimes(date).map((t) => <option key={t} value={t}>{t}</option>)}
+          </select></div>
         <div className="field">
           <label htmlFor="pb-dur">Czas</label>
           <select id="pb-dur" className="input" value={f.duration} onChange={(e) => setF({ ...f, duration: Number(e.target.value) })}>
