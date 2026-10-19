@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 type Res = { result: string; code?: string; name?: string; sim?: string; when?: string; duration?: number; status?: string };
 const LABEL: Record<string, string> = { ok: "Wpuszczony", already: "Już był check-in", not_found: "Nie ma takiego kodu", not_paid: "Rezerwacja nieopłacona / nieaktywna", too_early: "Za wcześnie (ponad 2 h do startu)" };
 
-// Skaner QR przez BarcodeDetector (Chrome/Edge/Android). Na iPhonie/Safari wpisz kod ręcznie.
+// Skaner QR: BarcodeDetector tam, gdzie jest (Chrome na Androidzie), a na iPhonie i w Safari biblioteka jsQR.
 export default function CheckIn() {
   const video = useRef<HTMLVideoElement>(null);
   const [code, setCode] = useState("");
@@ -21,34 +21,53 @@ export default function CheckIn() {
 
   useEffect(() => {
     if (!scan) return;
-    const BD = (window as unknown as { BarcodeDetector?: new (o: object) => { detect: (v: HTMLVideoElement) => Promise<{ rawValue: string }[]> } }).BarcodeDetector;
-    if (!BD) {
+    if (!navigator.mediaDevices?.getUserMedia) {
       setSupport(false);
       setScan(false);
       return;
     }
     let stream: MediaStream | null = null;
-    let raf = 0;
-    const det = new BD({ formats: ["qr_code"] });
+    let timer = 0;
+    let stopped = false;
+    const BD = (window as unknown as { BarcodeDetector?: new (o: object) => { detect: (v: HTMLVideoElement) => Promise<{ rawValue: string }[]> } }).BarcodeDetector;
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
     (async () => {
+      const jsQR = BD ? null : (await import("jsqr")).default;
+      const det = BD ? new BD({ formats: ["qr_code"] }) : null;
       stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+      if (stopped) return stream.getTracks().forEach((t) => t.stop());
       video.current!.srcObject = stream;
       await video.current!.play();
+      const read = async () => {
+        const v = video.current;
+        if (!v || !v.videoWidth) return null;
+        if (det) return (await det.detect(v))[0]?.rawValue ?? null;
+        // jsQR: zmniejszona klatka (maks. 640 px) wystarczy i nie grzeje telefonu
+        const k = Math.min(1, 640 / v.videoWidth);
+        canvas.width = Math.round(v.videoWidth * k);
+        canvas.height = Math.round(v.videoHeight * k);
+        ctx!.drawImage(v, 0, 0, canvas.width, canvas.height);
+        const img = ctx!.getImageData(0, 0, canvas.width, canvas.height);
+        return jsQR!(img.data, img.width, img.height, { inversionAttempts: "dontInvert" })?.data ?? null;
+      };
       const loop = async () => {
+        if (stopped) return;
         try {
-          const codes = await det.detect(video.current!);
-          const v = codes[0]?.rawValue;
+          const v = await read();
           if (v && v !== last.current) {
             last.current = v;
+            if (navigator.vibrate) navigator.vibrate(80);
             send(v);
           }
         } catch {}
-        raf = requestAnimationFrame(loop);
+        timer = window.setTimeout(loop, 150);
       };
       loop();
     })().catch(() => setScan(false));
     return () => {
-      cancelAnimationFrame(raf);
+      stopped = true;
+      clearTimeout(timer);
       stream?.getTracks().forEach((t) => t.stop());
     };
   }, [scan]);
@@ -61,7 +80,7 @@ export default function CheckIn() {
       </form>
       <div>
         <button className="btn-ghost" type="button" onClick={() => setScan(!scan)}>{scan ? "Zatrzymaj skaner" : "Skanuj QR kamerą"}</button>
-        {!support && <p className="err" style={{ marginTop: 10 }}>Ta przeglądarka nie obsługuje skanera. Użyj Chrome na Androidzie albo wpisz kod.</p>}
+        {!support && <p className="err" style={{ marginTop: 10 }}>Ta przeglądarka nie daje dostępu do aparatu. Otwórz panel w Safari albo Chrome albo wpisz kod.</p>}
       </div>
       {scan && <video ref={video} muted playsInline style={{ width: "100%", borderRadius: 14, border: "1px solid var(--line)" }} />}
       {res && (
