@@ -24,7 +24,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <div className="adm">
       <aside className="adm-side">
-        <Link href="/" className="adm-brand">TIRENDERS<small>panel obsługi</small></Link>
+        <Link href="/admin" className="adm-brand">
+          <img src="/img/2real-logo-sm.webp" alt="2Real Simracing by Tirenders" width={520} height={180} />
+          <small>panel obsługi</small>
+        </Link>
         <AdminNav items={items.map(([h, l]) => [h, l])} />
         <div className="adm-me">
           {u.email}
@@ -35,7 +38,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <style>{`
         .adm { display: grid; grid-template-columns: 230px minmax(0,1fr); min-height: 100vh; }
         .adm-side { border-right: 1px solid var(--line); padding: 26px 16px; display: flex; flex-direction: column; gap: 30px; position: sticky; top: 0; height: 100vh; }
-        .adm-brand { font-weight: 600; letter-spacing: .26em; font-size: 13px; display: grid; gap: 4px; padding: 0 10px; }
+        .adm-brand { display: grid; gap: 8px; padding: 0 10px; }
+        .adm-brand img { width: 150px; height: auto; display: block; }
         .adm-brand small { letter-spacing: .1em; color: var(--muted); font-weight: 400; font-size: 11px; text-transform: uppercase; }
         .adm-me { margin-top: auto; font-size: 12.5px; color: #bbb; display: grid; gap: 2px; padding: 0 10px; word-break: break-all; }
         .adm-me small { color: var(--muted); }

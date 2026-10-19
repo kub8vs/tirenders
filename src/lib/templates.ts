@@ -136,7 +136,7 @@ export function payLinkEmail(list: Booking[]) {
     html: shell(
       "Termin czeka na Ciebie.",
       `Cześć ${b.name.split(" ")[0]}, zarezerwowaliśmy dla Ciebie: <b style="color:#fff">${sims}</b>, ${fmtLong(b.start, "pl")}, ${b.durationMin} min.
-<p>Do zapłaty: <b style="color:#fff">${pln(total, "pl")}</b> (BLIK, karta, Przelewy24). Termin trzymamy do <b style="color:#fff">${until}</b>, potem wraca do sprzedaży.</p>
+<p>Do zapłaty: <b style="color:#fff">${pln(total, "pl")}</b>${list.reduce((a, x) => a + x.discountAmount, 0) > 0 ? ` (po rabacie ${pln(list.reduce((a, x) => a + x.discountAmount, 0), "pl")})` : ""} (BLIK, karta, Przelewy24). Termin trzymamy do <b style="color:#fff">${until}</b>, potem wraca do sprzedaży.</p>
 <p style="margin:24px 0">${btn(payUrl(b.code), "Zapłać i potwierdź")}</p>`,
     ),
     text: `Zapłać ${pln(total, "pl")} za rezerwację ${b.code}: ${payUrl(b.code)}`,

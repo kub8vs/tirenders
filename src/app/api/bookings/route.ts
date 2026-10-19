@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { BOOKING } from "@/config/site";
+import { BOOKING, activeSims } from "@/config/site";
 import { currentUser } from "@/lib/auth";
 import { BookingError, createBooking } from "@/lib/bookings";
 import { prisma } from "@/lib/db";
@@ -27,6 +27,8 @@ export async function POST(req: Request) {
   const d = parsed.data;
   const simulatorIds = d.simulatorIds ?? (d.simulatorId ? [d.simulatorId] : []);
   if (!simulatorIds.length) return NextResponse.json({ error: "invalid" }, { status: 400 });
+  // Cały salon na wyłączność rezerwuje tylko obsługa (telefonicznie), także dla zalogowanych klientów.
+  if (new Set(simulatorIds).size >= activeSims().length) return NextResponse.json({ error: "whole_salon" }, { status: 403 });
 
   // jeden numer telefonu: max 6 prób na 10 min (bot nie zablokuje całego dnia, zmieniając tylko e-mail)
   if (!(await allow(`book:phone:${d.phone.replace(/\D/g, "")}`, 6, 600))) return NextResponse.json({ error: "rate" }, { status: 429 });

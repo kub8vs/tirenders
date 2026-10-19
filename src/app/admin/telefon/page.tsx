@@ -19,13 +19,13 @@ export default async function Page() {
     return [{ date, label: `${WEEKDAY[dowOf(date)]} ${d}.${m}${i0(date, today)}`, open: toMin(h.open), close: toMin(h.close) }];
   });
   return (
-    <>
+    <div style={{ maxWidth: 760, margin: "0 auto", textAlign: "center" }}>
       <h1>Rezerwacja telefoniczna</h1>
-      <p style={{ color: "var(--muted)", maxWidth: 640, marginBottom: 24 }}>
+      <p style={{ color: "var(--muted)", maxWidth: 640, margin: "0 auto 24px" }}>
         Wybrane stanowiska blokują się od razu. Klient dostaje SMS i mail z linkiem do zapłaty na stronie. Jeśli nie zapłaci w ciągu {BOOKING.payLinkHours} h (najpóźniej 15 min przed startem), termin wraca do sprzedaży.
       </p>
       <PhoneBooking days={days} step={BOOKING.slotStepMin} durations={[...BOOKING.durations]} sims={SIMULATORS.filter((s) => s.status === "ACTIVE").map((s) => ({ id: s.id, name: s.name }))} />
-    </>
+    </div>
   );
 }
 

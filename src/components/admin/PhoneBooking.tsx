@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type Day = { date: string; label: string; open: number; close: number };
 const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
@@ -23,6 +23,19 @@ export default function PhoneBooking({ days, step, durations, sims }: { days: Da
   const time = list.includes(f.time) ? f.time : "";
   const toggle = (id: string) => setF({ ...f, sims: f.sims.includes(id) ? f.sims.filter((x) => x !== id) : [...f.sims, id] });
   const all = f.sims.length === sims.length;
+
+  // Cena z rabatem grupowym (3+ stanowiska −10%, 5+ −15%, cały salon −25%), liczona przez serwer.
+  const [q, setQ] = useState<{ list: number; discount: number; total: number; groupPercent: number } | null>(null);
+  useEffect(() => {
+    if (!f.sims.length) return setQ(null);
+    const c = new AbortController();
+    fetch(`/api/quote?sims=${f.sims.join(",")}&duration=${f.duration}`, { signal: c.signal })
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setQ)
+      .catch(() => {});
+    return () => c.abort();
+  }, [f.sims, f.duration]);
+  const zl = (g: number) => `${(g / 100).toLocaleString("pl-PL", { maximumFractionDigits: 2 })} zł`;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,10 +64,11 @@ export default function PhoneBooking({ days, step, durations, sims }: { days: Da
   };
 
   return (
-    <form onSubmit={submit} className="glass" style={{ padding: 22, display: "grid", gap: 18, maxWidth: 760 }}>
+    <form onSubmit={submit} className="glass pb" style={{ padding: 22, display: "grid", gap: 18, maxWidth: 760, margin: "0 auto", textAlign: "center" }}>
+      <style>{`.pb .field { justify-items: center; } .pb .field .input { width: 100%; text-align: center; text-align-last: center; } .pb .chips-row { justify-content: center; }`}</style>
       <div className="field">
         <label>Stanowiska</label>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div className="chips-row" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {sims.map((s) => (
             <button type="button" key={s.id} className="chip" onClick={() => toggle(s.id)} style={f.sims.includes(s.id) ? { background: "#fff", color: "#000" } : undefined} aria-pressed={f.sims.includes(s.id)}>
               {s.name}
@@ -93,6 +107,16 @@ export default function PhoneBooking({ days, step, durations, sims }: { days: Da
         <label>Płatność</label>
         <p style={{ margin: 0 }}>Przez stronę: link do zapłaty SMS-em i mailem (BLIK, karta, Przelewy24).</p>
       </div>
+      {q && (
+        <div className="field" role="status">
+          <label>Do zapłaty</label>
+          <p style={{ margin: 0, fontSize: 26, color: "#fff" }}>
+            {q.discount > 0 && <s style={{ color: "var(--muted)", fontSize: 18, marginRight: 10 }}>{zl(q.list)}</s>}
+            {zl(q.total)}
+          </p>
+          {q.discount > 0 && <small style={{ color: "#9ff0c0" }}>{all ? "Cały salon" : "Rabat grupowy"} −{q.groupPercent}% (−{zl(q.discount)})</small>}
+        </div>
+      )}
       <div>
         <button className="btn-white" type="submit" disabled={busy || !f.sims.length || !time || f.name.trim().length < 2 || !f.phone || !f.email}>
           {busy ? "Zapisuję…" : "Zablokuj termin i wyślij link do zapłaty"}

@@ -21,10 +21,10 @@ const T = {
     step4: "Wybierz stanowisko",
     promoTitle: "Jedziecie ekipą? Taniej.",
     promoLead: "Zaznacz kilka stanowisk na tę samą godzinę, a rabat naliczy się sam.",
-    promoTiers: [`${GROUP_DISCOUNTS[0].min}+ stanowiska`, `${GROUP_DISCOUNTS[1].min}+ stanowisk`, "Cały salon"],
+    promoTiers: [`${GROUP_DISCOUNTS[0].min}+ stanowiska`, `${GROUP_DISCOUNTS[1].min}+ stanowisk`, "Cały salon (telefonicznie)"],
     promoNext: (n: number, p: number) => `Dobierz jeszcze ${n} ${n === 1 ? "stanowisko" : "stanowiska"}, a rabat wzrośnie do ${p}%.`,
     promoOn: (p: number) => `Rabat grupowy −${p}% naliczony.`,
-    allFree: "Zaznacz cały salon",
+    wholeSalon: "Cały salon na wyłączność rezerwujemy telefonicznie. Zadzwoń do obsługi:",
     clear: "Wyczyść",
     groupDisc: "Rabat grupowy",
     codeWeaker: "Kod działa, ale rabat grupowy jest większy, więc liczymy grupowy.",
@@ -70,10 +70,10 @@ const T = {
     step4: "Choose your rig",
     promoTitle: "Coming as a crew? It's cheaper.",
     promoLead: "Pick several rigs for the same time and the discount applies on its own.",
-    promoTiers: [`${GROUP_DISCOUNTS[0].min}+ rigs`, `${GROUP_DISCOUNTS[1].min}+ rigs`, "Whole venue"],
+    promoTiers: [`${GROUP_DISCOUNTS[0].min}+ rigs`, `${GROUP_DISCOUNTS[1].min}+ rigs`, "Whole venue (by phone)"],
     promoNext: (n: number, p: number) => `Add ${n} more ${n === 1 ? "rig" : "rigs"} and the discount goes up to ${p}%.`,
     promoOn: (p: number) => `Group discount −${p}% applied.`,
-    allFree: "Book the whole venue",
+    wholeSalon: "The whole venue is booked by phone only. Call us:",
     clear: "Clear",
     groupDisc: "Group discount",
     codeWeaker: "The code works, but the group discount is bigger, so we use that.",
@@ -128,7 +128,20 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
   const [slots, setSlots] = useState<Slot[] | null>(null);
   const [start, setStart] = useState<string | null>(null);
   const [sims, setSims] = useState<string[]>(initialSim && simById(initialSim)?.status === "ACTIVE" ? [initialSim] : []);
-  const toggleSim = (id: string) => setSims((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
+  // Online można wybrać najwyżej wszystkie stanowiska poza jednym; cały salon tylko przez obsługę.
+  const [wholeInfo, setWholeInfo] = useState(false);
+  const toggleSim = (id: string) =>
+    setSims((cur) => {
+      if (cur.includes(id)) {
+        setWholeInfo(false);
+        return cur.filter((x) => x !== id);
+      }
+      if (cur.length + 1 >= activeSims().length) {
+        setWholeInfo(true);
+        return cur;
+      }
+      return [...cur, id];
+    });
   const [form, setForm] = useState({ name: prefill?.name ?? "", email: prefill?.email ?? "", phone: prefill?.phone ?? "", code: "", terms: false });
   const [quote, setQuote] = useState<{ list: number; discount: number; total: number; codeValid: boolean | null; codeApplied: boolean; groupPercent: number } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -204,6 +217,7 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
       loadSlots();
     } else if (d.error === "too_many_holds") setError(t.tooMany);
     else if (d.error === "rate") setError(t.rate);
+    else if (d.error === "whole_salon") setWholeInfo(true);
     else if (d.error === "invalid") setError(t.invalid);
     else setError(t.server);
   };
@@ -212,8 +226,7 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
   const nActive = activeSims().length;
   const pct = groupPercent(sims.length);
   // następny próg rabatu: ile stanowisk brakuje i ile wtedy procent
-  const nextTier = [...GROUP_DISCOUNTS.map((t) => ({ min: t.min, percent: t.percent })), { min: nActive, percent: WHOLE_SALON_PERCENT }].find((t) => t.min > sims.length && t.percent > pct);
-  const freeNow = slot ? activeSims().filter((x) => slot.free.includes(x.id)).map((x) => x.id) : [];
+  const nextTier = GROUP_DISCOUNTS.map((t) => ({ min: t.min, percent: t.percent })).find((t) => t.min > sims.length && t.min < nActive && t.percent > pct);
 
   return (
     <form className="bk" onSubmit={submit} noValidate>
@@ -299,17 +312,17 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
             <p className="promo-state">
               {pct ? t.promoOn(pct) : ""} {nextTier && sims.length > 0 ? t.promoNext(nextTier.min - sims.length, nextTier.percent) : ""}
             </p>
-            {slot && (
+            {slot && sims.length > 1 && (
               <div className="promo-actions">
-                <button type="button" className="btn-ghost" disabled={freeNow.length < nActive || sims.length === nActive} onClick={() => setSims(freeNow)}>
-                  {t.allFree} −{WHOLE_SALON_PERCENT}%
+                <button type="button" className="btn-ghost" onClick={() => { setSims([]); setWholeInfo(false); }}>
+                  {t.clear}
                 </button>
-                {sims.length > 1 && (
-                  <button type="button" className="btn-ghost" onClick={() => setSims([])}>
-                    {t.clear}
-                  </button>
-                )}
               </div>
+            )}
+            {wholeInfo && (
+              <p className="promo-state" role="status">
+                {t.wholeSalon} <b>{SITE.phone ?? (lang === "pl" ? "numer wkrótce" : "number coming soon")}</b>
+              </p>
             )}
           </div>
           <div className="bk-plan">
