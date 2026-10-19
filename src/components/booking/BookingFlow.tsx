@@ -50,6 +50,7 @@ const T = {
     discount: "Rabat",
     taken: "Ktoś był szybszy i zajął ten termin. Wybierz inną godzinę albo stanowisko.",
     tooMany: "Masz już kilka nieopłaconych rezerwacji. Dokończ płatność albo poczekaj 10 minut.",
+    rate: "Za dużo prób w krótkim czasie. Odczekaj minutę i spróbuj ponownie.",
     invalid: "Sprawdź dane w formularzu.",
     server: "Coś poszło nie tak po naszej stronie. Spróbuj ponownie za chwilę.",
     change: "zmień",
@@ -98,6 +99,7 @@ const T = {
     discount: "Discount",
     taken: "Someone was faster and took this slot. Pick another time or rig.",
     tooMany: "You already have a few unpaid bookings. Finish paying or wait 10 minutes.",
+    rate: "Too many attempts in a short time. Wait a minute and try again.",
     invalid: "Check the form details.",
     server: "Something went wrong on our side. Try again in a moment.",
     change: "change",
@@ -201,6 +203,7 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
       setStart(null);
       loadSlots();
     } else if (d.error === "too_many_holds") setError(t.tooMany);
+    else if (d.error === "rate") setError(t.rate);
     else if (d.error === "invalid") setError(t.invalid);
     else setError(t.server);
   };

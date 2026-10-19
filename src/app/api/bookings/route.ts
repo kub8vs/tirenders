@@ -4,6 +4,7 @@ import { BOOKING } from "@/config/site";
 import { currentUser } from "@/lib/auth";
 import { BookingError, createBooking } from "@/lib/bookings";
 import { prisma } from "@/lib/db";
+import { allow, clientIp } from "@/lib/ratelimit";
 
 const Body = z.object({
   simulatorId: z.string().max(40).optional(),
@@ -19,12 +20,16 @@ const Body = z.object({
 });
 
 export async function POST(req: Request) {
+  // Limit na adres IP jest luźny, bo goście w salonie mogą dzielić jedno Wi-Fi.
+  if (!(await allow(`book:ip:${clientIp(req)}`, 30, 60))) return NextResponse.json({ error: "rate" }, { status: 429 });
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "invalid", issues: parsed.error.flatten().fieldErrors }, { status: 400 });
   const d = parsed.data;
   const simulatorIds = d.simulatorIds ?? (d.simulatorId ? [d.simulatorId] : []);
   if (!simulatorIds.length) return NextResponse.json({ error: "invalid" }, { status: 400 });
 
+  // jeden numer telefonu: max 6 prób na 10 min (bot nie zablokuje całego dnia, zmieniając tylko e-mail)
+  if (!(await allow(`book:phone:${d.phone.replace(/\D/g, "")}`, 6, 600))) return NextResponse.json({ error: "rate" }, { status: 429 });
   // prosta ochrona przed zalewem: max 3 nieopłacone holdy na e-mail
   const holds = await prisma.booking.count({ where: { email: d.email.toLowerCase(), status: "PENDING", holdExpiresAt: { gt: new Date() } } });
   if (holds >= 3) return NextResponse.json({ error: "too_many_holds" }, { status: 429 });

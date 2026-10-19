@@ -22,7 +22,7 @@ export function isOverlapError(e: unknown) {
 }
 
 /** Holdy, którym minęło 10 min, zwalniają termin od razu, zanim ktoś spróbuje go kupić (cron robi to też co minutę). */
-async function releaseStaleHolds(tx: Prisma.TransactionClient, simulatorIds: string[], start: Date, end: Date, now = new Date()) {
+async function releaseStaleHolds(tx: Prisma.TransactionClient | typeof prisma, simulatorIds: string[], start: Date, end: Date, now = new Date()) {
   const pad = BOOKING.bufferMin * MIN;
   await tx.booking.updateMany({
     where: {
@@ -69,46 +69,38 @@ export async function createBooking(input: NewBooking) {
   const holdUntil = input.payLink ? payLinkDeadline(input.start) : new Date(Date.now() + BOOKING.holdMin * MIN);
   if (input.payLink && holdUntil.getTime() < Date.now() + 30 * MIN) throw new BookingError("closed");
 
-  const bookings = await prisma.$transaction(async (tx) => {
-    await releaseStaleHolds(tx, ids, input.start, end);
-    for (const id of ids) if (!(await isFree(tx, id, input.start, end))) throw new BookingError("slot_taken");
-    const out: Booking[] = [];
-    let groupId: string | null = null;
-    for (const item of q.items) {
-      let code = bookingCode();
-      while (await tx.booking.findUnique({ where: { code } })) code = bookingCode();
-      if (ids.length > 1) groupId ??= code;
-      out.push(
-        await tx.booking.create({
-          data: {
-            code,
-            groupId,
-            simulatorId: item.simulatorId,
-            userId: input.userId ?? null,
-            name: input.name.trim(),
-            email: input.email.trim().toLowerCase(),
-            phone: input.phone.trim(),
-            start: input.start,
-            end,
-            durationMin: input.durationMin,
-            listPriceGross: item.list,
-            discountAmount: item.discount,
-            discountCode: q.codeApplied ? q.code : null,
-            priceGross: item.total,
-            status: input.markPaid ? "PAID" : "PENDING",
-            paidAt: input.markPaid ? new Date() : null,
-            paymentProvider: input.markPaid ? "onsite" : null,
-            paymentMethod: input.markPaid ? "ONSITE" : null,
-            holdExpiresAt: input.markPaid ? null : holdUntil,
-            source: input.source ?? "ONLINE",
-            note: input.note ?? (q.groupPercent ? `Rabat grupowy ${q.groupPercent}% (${ids.length} stanowisk)` : undefined),
-            locale: input.locale === "en" ? "en" : "pl",
-          },
-        }),
-      );
-    }
-    return out;
-  }).catch((e) => {
+  // Bez długiej transakcji: przy tysiącach kliknięć każda rezerwacja to kilka krótkich zapytań,
+  // a o tym, kto dostał termin, decyduje ograniczenie booking_no_overlap w bazie.
+  await releaseStaleHolds(prisma, ids, input.start, end);
+  for (const id of ids) if (!(await isFree(prisma, id, input.start, end))) throw new BookingError("slot_taken");
+  const codes = q.items.map(() => bookingCode());
+  const groupId = ids.length > 1 ? codes[0] : null;
+  const rows: Prisma.BookingCreateInput[] = q.items.map((item, i) => ({
+    code: codes[i],
+    groupId,
+    simulator: { connect: { id: item.simulatorId } },
+    ...(input.userId ? { user: { connect: { id: input.userId } } } : {}),
+    name: input.name.trim(),
+    email: input.email.trim().toLowerCase(),
+    phone: input.phone.trim(),
+    start: input.start,
+    end,
+    durationMin: input.durationMin,
+    listPriceGross: item.list,
+    discountAmount: item.discount,
+    discountCode: q.codeApplied ? q.code : null,
+    priceGross: item.total,
+    status: input.markPaid ? "PAID" : "PENDING",
+    paidAt: input.markPaid ? new Date() : null,
+    paymentProvider: input.markPaid ? "onsite" : null,
+    paymentMethod: input.markPaid ? "ONSITE" : null,
+    holdExpiresAt: input.markPaid ? null : holdUntil,
+    source: input.source ?? "ONLINE",
+    note: input.note ?? (q.groupPercent ? `Rabat grupowy ${q.groupPercent}% (${ids.length} stanowisk)` : undefined),
+    locale: input.locale === "en" ? "en" : "pl",
+  }));
+  // Cała grupa zapisuje się w jednej transakcji albo wcale.
+  const bookings: Booking[] = await prisma.$transaction(rows.map((data) => prisma.booking.create({ data }))).catch((e) => {
     // Ktoś inny kupił ten termin w tej samej chwili: baza przepuściła tylko jedną rezerwację.
     if (isOverlapError(e)) throw new BookingError("slot_taken");
     throw e;
