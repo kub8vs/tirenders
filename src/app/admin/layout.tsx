@@ -13,6 +13,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const role = u.role as Role;
   const items = [
     ["/admin", "Kalendarz", "calendar"],
+    ["/admin/telefon", "Rezerwacja telefoniczna", "calendar"],
     ["/admin/checkin", "Check-in", "checkin"],
     ["/admin/sprzedaz", "Sprzedaż sklep", "sales"],
     ["/admin/raporty", "Raporty Excel", "reports"],

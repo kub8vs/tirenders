@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import DayCalendar from "@/components/admin/DayCalendar";
-import PhoneBooking from "@/components/admin/PhoneBooking";
 import { HOURS, SIMULATORS } from "@/config/site";
 import { staffUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
@@ -46,8 +45,7 @@ export default async function Page({ searchParams }: { searchParams: { d?: strin
       ) : (
         <p className="notice">Tego dnia salon jest zamknięty (wg godzin otwarcia w konfiguracji).</p>
       )}
-      <h2 style={{ fontSize: 24, margin: "50px 0 16px" }}>Rezerwacja telefoniczna / wyłączność</h2>
-      <PhoneBooking date={date} sims={SIMULATORS.filter((s) => s.status === "ACTIVE").map((s) => ({ id: s.id, name: s.name }))} />
+      <p style={{ marginTop: 40 }}><a className="btn-ghost" href="/admin/telefon">+ Rezerwacja telefoniczna</a></p>
     </>
   );
 }
