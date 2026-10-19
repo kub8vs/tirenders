@@ -1,11 +1,14 @@
-// SQLite lokalnie. Na produkcji zmień provider na "postgresql" i ustaw DATABASE_URL.
+// Postgres (Neon). DATABASE_URL = połączenie przez pooler (aplikacja),
+// DATABASE_URL_UNPOOLED = połączenie bezpośrednie (migracje). Integracja Neon w Vercel ustawia oba.
+// Blokada podwójnych rezerwacji siedzi w samej bazie: patrz migracja 0001_init (booking_no_overlap).
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
 }
 
 model User {

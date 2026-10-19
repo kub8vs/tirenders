@@ -1,4 +1,4 @@
-import type { Booking } from "@prisma/client";
+import { Prisma, type Booking } from "@prisma/client";
 import { BOOKING, SITE, simById } from "@/config/site";
 import { isFree, validStart } from "./availability";
 import { prisma } from "./db";
@@ -13,6 +13,27 @@ export class BookingError extends Error {
   constructor(public code: "slot_taken" | "invalid" | "closed" | "not_allowed") {
     super(code);
   }
+}
+
+/** Baza odrzuciła zapis, bo termin nachodzi na inną aktywną rezerwację (constraint booking_no_overlap). */
+export function isOverlapError(e: unknown) {
+  const msg = e instanceof Error ? e.message : String(e);
+  return msg.includes("booking_no_overlap") || msg.includes("23P01");
+}
+
+/** Holdy, którym minęło 10 min, zwalniają termin od razu, zanim ktoś spróbuje go kupić (cron robi to też co minutę). */
+async function releaseStaleHolds(tx: Prisma.TransactionClient, simulatorIds: string[], start: Date, end: Date, now = new Date()) {
+  const pad = BOOKING.bufferMin * MIN;
+  await tx.booking.updateMany({
+    where: {
+      simulatorId: { in: simulatorIds },
+      status: "PENDING",
+      holdExpiresAt: { lte: now },
+      start: { lt: new Date(end.getTime() + pad) },
+      end: { gt: new Date(start.getTime() - pad) },
+    },
+    data: { status: "EXPIRED" },
+  });
 }
 
 export type NewBooking = {
@@ -41,6 +62,7 @@ export async function createBooking(input: NewBooking) {
   const q = await quote(ids, input.durationMin, input.discountCode);
 
   const bookings = await prisma.$transaction(async (tx) => {
+    await releaseStaleHolds(tx, ids, input.start, end);
     for (const id of ids) if (!(await isFree(tx, id, input.start, end))) throw new BookingError("slot_taken");
     const out: Booking[] = [];
     let groupId: string | null = null;
@@ -78,6 +100,10 @@ export async function createBooking(input: NewBooking) {
       );
     }
     return out;
+  }).catch((e) => {
+    // Ktoś inny kupił ten termin w tej samej chwili: baza przepuściła tylko jedną rezerwację.
+    if (isOverlapError(e)) throw new BookingError("slot_taken");
+    throw e;
   });
 
   const booking = bookings[0];
@@ -107,19 +133,32 @@ export async function markPaid(bookingId: string, ref: { provider: string; ref?:
 
 async function markOnePaid(bookingId: string, ref: { provider: string; ref?: string; method?: string }) {
   const b = await prisma.booking.findUnique({ where: { id: bookingId } });
-  if (!b || b.status === "PAID" || b.status === "COMPLETED") return b;
-  if (b.status !== "PENDING" && b.status !== "EXPIRED") return b;
+  if (!b || (b.status !== "PENDING" && b.status !== "EXPIRED")) return b;
 
-  const stillFree = await isFree(prisma, b.simulatorId, b.start, b.end, b.id);
   const paidData = { paymentProvider: ref.provider, paymentRef: ref.ref ?? b.paymentRef, paymentMethod: ref.method ?? null, paidAt: new Date() };
-  if (!stillFree) {
-    const updated = await prisma.booking.update({ where: { id: b.id }, data: { ...paidData, status: "REFUNDED", refundAmount: b.priceGross, cancelledAt: new Date() } });
-    await refund(updated, updated.priceGross);
-    const m = cancelledEmail(updated, updated.priceGross, "conflict");
-    await sendEmail({ to: updated.email, ...m, bookingId: updated.id });
+  // Zmiana statusu tylko z PENDING/EXPIRED: gdy Stripe wyśle to samo powiadomienie dwa razy naraz,
+  // tylko jedno przejdzie, więc klient dostanie jeden mail i jeden SMS.
+  const claimable = { id: b.id, status: { in: ["PENDING", "EXPIRED"] } };
+  let claimed: number;
+  try {
+    ({ count: claimed } = await prisma.booking.updateMany({ where: claimable, data: { ...paidData, status: "PAID", holdExpiresAt: null } }));
+  } catch (e) {
+    if (!isOverlapError(e)) throw e;
+    // Zapłacił po wygaśnięciu blokady, a termin w międzyczasie kupił ktoś inny: pełny zwrot.
+    const { count } = await prisma.booking.updateMany({
+      where: claimable,
+      data: { ...paidData, status: "REFUNDED", refundAmount: b.priceGross, cancelledAt: new Date() },
+    });
+    const updated = await prisma.booking.findUniqueOrThrow({ where: { id: b.id } });
+    if (count === 1) {
+      await refund(updated, updated.priceGross);
+      const m = cancelledEmail(updated, updated.priceGross, "conflict");
+      await sendEmail({ to: updated.email, ...m, bookingId: updated.id });
+    }
     return updated;
   }
-  const updated = await prisma.booking.update({ where: { id: b.id }, data: { ...paidData, status: "PAID", holdExpiresAt: null } });
+  const updated = await prisma.booking.findUniqueOrThrow({ where: { id: b.id } });
+  if (claimed !== 1) return updated;
   if (updated.discountCode) await prisma.discountCode.update({ where: { code: updated.discountCode }, data: { uses: { increment: 1 } } }).catch(() => null);
   await afterPaid(updated);
   return updated;
@@ -181,6 +220,7 @@ export async function rescheduleBooking(id: string, newStart: Date, newSimId: st
   if (by === "customer" && sim.priceGroup !== simById(b.simulatorId)?.priceGroup) throw new BookingError("not_allowed");
   const end = new Date(newStart.getTime() + b.durationMin * MIN);
   const updated = await prisma.$transaction(async (tx) => {
+    await releaseStaleHolds(tx, [simulatorId], newStart, end);
     if (!(await isFree(tx, simulatorId, newStart, end, b.id))) throw new BookingError("slot_taken");
     return tx.booking.update({
       where: { id },
@@ -192,6 +232,9 @@ export async function rescheduleBooking(id: string, newStart: Date, newSimId: st
         remind10At: null,
       },
     });
+  }).catch((e) => {
+    if (isOverlapError(e)) throw new BookingError("slot_taken");
+    throw e;
   });
   const m = rescheduledEmail(updated);
   await sendEmail({ to: updated.email, ...m, bookingId: updated.id });
