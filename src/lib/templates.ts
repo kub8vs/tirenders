@@ -2,9 +2,9 @@ import type { Booking } from "@prisma/client";
 import { BOOKING, SITE, simById } from "@/config/site";
 import { pln } from "./pricing";
 import { fmtLong, fmtDate, fmtTime } from "./time";
-import { manageUrl, payUrl } from "./tokens";
+import { manageUrl, payUrl, siteUrl } from "./tokens";
 
-export const appUrl = () => (process.env.APP_URL || "http://localhost:3100").replace(/\/$/, "");
+export const appUrl = siteUrl;
 
 type L = "pl" | "en";
 const lang = (b: { locale: string }): L => (b.locale === "en" ? "en" : "pl");

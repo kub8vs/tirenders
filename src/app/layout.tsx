@@ -6,6 +6,7 @@ import Providers from "@/components/Providers";
 import Motion from "@/components/Motion";
 import Reveal from "@/components/Reveal";
 import { getDict, getLang } from "@/lib/i18n";
+import { siteUrl } from "@/lib/tokens";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin", "latin-ext"], variable: "--font-inter", display: "swap" });
@@ -16,7 +17,7 @@ export function generateMetadata(): Metadata {
   return {
     title: { default: d.meta.title, template: `%s · Tirenders` },
     description: d.meta.description,
-    metadataBase: new URL(process.env.APP_URL || "http://localhost:3100"),
+    metadataBase: new URL(siteUrl()),
     openGraph: { title: d.meta.title, description: d.meta.description, images: ["/img/foto/og.jpg"], type: "website" },
     icons: { icon: "/icon.svg" },
   };
