@@ -10,7 +10,7 @@ import { MIN } from "./time";
 import { bookingCode } from "./tokens";
 
 export class BookingError extends Error {
-  constructor(public code: "slot_taken" | "invalid" | "closed" | "not_allowed") {
+  constructor(public code: "slot_taken" | "invalid" | "closed" | "not_allowed" | "too_soon") {
     super(code);
   }
 }
@@ -53,9 +53,9 @@ export type NewBooking = {
   payLink?: boolean; // tylko panel obsługi: klient płaci linkiem z SMS-a, termin czeka do BOOKING.payLinkHours
 };
 
-/** Do kiedy rezerwacja telefoniczna czeka na zapłatę: payLinkHours, ale najpóźniej 2 h przed startem. */
+/** Do kiedy rezerwacja telefoniczna czeka na zapłatę: payLinkHours, ale najpóźniej 15 min przed startem. */
 function payLinkDeadline(start: Date) {
-  return new Date(Math.min(Date.now() + BOOKING.payLinkHours * 60 * MIN, start.getTime() - 120 * MIN));
+  return new Date(Math.min(Date.now() + BOOKING.payLinkHours * 60 * MIN, start.getTime() - 15 * MIN));
 }
 
 export async function createBooking(input: NewBooking) {
@@ -67,7 +67,8 @@ export async function createBooking(input: NewBooking) {
   const end = new Date(input.start.getTime() + input.durationMin * MIN);
   const q = await quote(ids, input.durationMin, input.discountCode);
   const holdUntil = input.payLink ? payLinkDeadline(input.start) : new Date(Date.now() + BOOKING.holdMin * MIN);
-  if (input.payLink && holdUntil.getTime() < Date.now() + 30 * MIN) throw new BookingError("closed");
+  // Klient musi mieć choć 15 min na zapłatę linkiem.
+  if (input.payLink && holdUntil.getTime() < Date.now() + 15 * MIN) throw new BookingError("too_soon");
 
   // Bez długiej transakcji: przy tysiącach kliknięć każda rezerwacja to kilka krótkich zapytań,
   // a o tym, kto dostał termin, decyduje ograniczenie booking_no_overlap w bazie.

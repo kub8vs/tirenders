@@ -4,12 +4,12 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { BOOKING, HOURS } from "@/config/site";
 
-/** Godziny startu co 15 min w godzinach otwarcia danego dnia, w zapisie 24-godzinnym (17:00, 17:15…). */
-function startTimes(date: string) {
+/** Godziny startu co 15 min, przy których cała jazda mieści się w godzinach otwarcia danego dnia, w zapisie 24-godzinnym (17:00, 17:15…). */
+function startTimes(date: string, duration: number) {
   const h = HOURS[new Date(`${date}T12:00:00Z`).getUTCDay()] ?? { open: "10:00", close: "24:00" };
   const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
   const out: string[] = [];
-  for (let m = toMin(h.open); m + 15 <= toMin(h.close); m += BOOKING.slotStepMin) out.push(`${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`);
+  for (let m = toMin(h.open); m + duration <= toMin(h.close); m += BOOKING.slotStepMin) out.push(`${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`);
   return out;
 }
 
@@ -44,7 +44,7 @@ export default function PhoneBooking({ date, sims }: { date: string; sims: { id:
           : `Dodano: ${d.codes.join(", ")}`,
       });
       router.refresh();
-    } else setMsg({ ok: false, text: d.error === "slot_taken" ? "Któreś stanowisko jest wtedy zajęte (część mogła się zapisać – sprawdź kalendarz)." : d.error === "closed" ? "Poza godzinami otwarcia albo zła godzina (co 15 min)." : "Sprawdź dane." });
+    } else setMsg({ ok: false, text: d.error === "slot_taken" ? "Któreś stanowisko jest wtedy zajęte (część mogła się zapisać – sprawdź kalendarz)." : d.error === "closed" ? "Ta godzina wychodzi poza godziny otwarcia (sprawdź też długość jazdy)." : d.error === "too_soon" ? "Za mało czasu na zapłatę linkiem: termin musi być co najmniej 30 min od teraz. Wybierz późniejszą godzinę albo płatność na miejscu." : "Sprawdź dane." });
   };
   return (
     <form onSubmit={submit} className="glass" style={{ padding: 22, display: "grid", gap: 16 }}>
@@ -58,11 +58,15 @@ export default function PhoneBooking({ date, sims }: { date: string; sims: { id:
       </div>
       <div className="form-grid">
         <div className="field"><label htmlFor="pb-time">Godzina ({date})</label><select id="pb-time" className="input" value={f.time} onChange={(e) => setF({ ...f, time: e.target.value })}>
-            {startTimes(date).map((t) => <option key={t} value={t}>{t}</option>)}
+            {startTimes(date, f.duration).map((t) => <option key={t} value={t}>{t}</option>)}
           </select></div>
         <div className="field">
           <label htmlFor="pb-dur">Czas</label>
-          <select id="pb-dur" className="input" value={f.duration} onChange={(e) => setF({ ...f, duration: Number(e.target.value) })}>
+          <select id="pb-dur" className="input" value={f.duration} onChange={(e) => {
+            const duration = Number(e.target.value);
+            const times = startTimes(date, duration);
+            setF({ ...f, duration, time: times.includes(f.time) ? f.time : (times[times.length - 1] ?? f.time) });
+          }}>
             {[15, 30, 45, 60, 90].map((d) => <option key={d} value={d}>{d} min</option>)}
           </select>
         </div>
