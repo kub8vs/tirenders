@@ -68,7 +68,11 @@ export const authOptions: NextAuthOptions = {
     },
     async jwt({ token, user }) {
       if (user?.email) {
-        const u = await prisma.user.findUnique({ where: { email: user.email.toLowerCase() } });
+        let u = await prisma.user.findUnique({ where: { email: user.email.toLowerCase() } });
+        // Adresy z OWNER_EMAILS (zmienna w Vercel, po przecinku) dostają rolę właściciela przy logowaniu,
+        // żeby nowa baza nie wymagała ręcznego zakładania konta admina.
+        const owners = (process.env.OWNER_EMAILS ?? "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
+        if (u && u.role !== "OWNER" && owners.includes(u.email)) u = await prisma.user.update({ where: { id: u.id }, data: { role: "OWNER" } });
         if (u) {
           token.uid = u.id;
           token.role = u.role;
