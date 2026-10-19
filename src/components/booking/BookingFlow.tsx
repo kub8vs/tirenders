@@ -24,7 +24,8 @@ const T = {
     promoTiers: [`${GROUP_DISCOUNTS[0].min}+ stanowiska`, `${GROUP_DISCOUNTS[1].min}+ stanowisk`, "Cały salon (telefonicznie)"],
     promoNext: (n: number, p: number) => `Dobierz jeszcze ${n} ${n === 1 ? "stanowisko" : "stanowiska"}, a rabat wzrośnie do ${p}%.`,
     promoOn: (p: number) => `Rabat grupowy −${p}% naliczony.`,
-    wholeSalon: "Cały salon na wyłączność rezerwujemy telefonicznie. Zadzwoń do obsługi:",
+    wholeSalon: "Cały salon na wyłączność rezerwujemy tylko telefonicznie. Zadzwoń na infolinię: obsługa zarezerwuje termin i wyśle Ci SMS-em link do płatności.",
+    callUs: "Zadzwoń na infolinię",
     clear: "Wyczyść",
     groupDisc: "Rabat grupowy",
     codeWeaker: "Kod działa, ale rabat grupowy jest większy, więc liczymy grupowy.",
@@ -73,7 +74,8 @@ const T = {
     promoTiers: [`${GROUP_DISCOUNTS[0].min}+ rigs`, `${GROUP_DISCOUNTS[1].min}+ rigs`, "Whole venue (by phone)"],
     promoNext: (n: number, p: number) => `Add ${n} more ${n === 1 ? "rig" : "rigs"} and the discount goes up to ${p}%.`,
     promoOn: (p: number) => `Group discount −${p}% applied.`,
-    wholeSalon: "The whole venue is booked by phone only. Call us:",
+    wholeSalon: "The whole venue is booked by phone only. Call our hotline: our team will book it and text you a payment link.",
+    callUs: "Call our hotline",
     clear: "Clear",
     groupDisc: "Group discount",
     codeWeaker: "The code works, but the group discount is bigger, so we use that.",
@@ -128,20 +130,9 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
   const [slots, setSlots] = useState<Slot[] | null>(null);
   const [start, setStart] = useState<string | null>(null);
   const [sims, setSims] = useState<string[]>(initialSim && simById(initialSim)?.status === "ACTIVE" ? [initialSim] : []);
-  // Online można wybrać najwyżej wszystkie stanowiska poza jednym; cały salon tylko przez obsługę.
-  const [wholeInfo, setWholeInfo] = useState(false);
-  const toggleSim = (id: string) =>
-    setSims((cur) => {
-      if (cur.includes(id)) {
-        setWholeInfo(false);
-        return cur.filter((x) => x !== id);
-      }
-      if (cur.length + 1 >= activeSims().length) {
-        setWholeInfo(true);
-        return cur;
-      }
-      return [...cur, id];
-    });
+  const toggleSim = (id: string) => setSims((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
+  // Cały salon można zaznaczyć, ale zapłacić online nie: rezerwuje go obsługa po telefonie (panel → Rezerwacja telefoniczna).
+  const wholeSalon = sims.length >= activeSims().length;
   const [form, setForm] = useState({ name: prefill?.name ?? "", email: prefill?.email ?? "", phone: prefill?.phone ?? "", code: "", terms: false });
   const [quote, setQuote] = useState<{ list: number; discount: number; total: number; codeValid: boolean | null; codeApplied: boolean; groupPercent: number } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -197,7 +188,7 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!ready || busy) return;
+    if (!ready || busy || wholeSalon) return;
     setBusy(true);
     setError(null);
     const res = await fetch("/api/bookings", {
@@ -217,7 +208,7 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
       loadSlots();
     } else if (d.error === "too_many_holds") setError(t.tooMany);
     else if (d.error === "rate") setError(t.rate);
-    else if (d.error === "whole_salon") setWholeInfo(true);
+    else if (d.error === "whole_salon") setError(t.wholeSalon);
     else if (d.error === "invalid") setError(t.invalid);
     else setError(t.server);
   };
@@ -314,15 +305,10 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
             </p>
             {slot && sims.length > 1 && (
               <div className="promo-actions">
-                <button type="button" className="btn-ghost" onClick={() => { setSims([]); setWholeInfo(false); }}>
+                <button type="button" className="btn-ghost" onClick={() => setSims([])}>
                   {t.clear}
                 </button>
               </div>
-            )}
-            {wholeInfo && (
-              <p className="promo-state" role="status">
-                {t.wholeSalon} <b>{SITE.phone ?? (lang === "pl" ? "numer wkrótce" : "number coming soon")}</b>
-              </p>
             )}
           </div>
           <div className="bk-plan">
@@ -415,9 +401,22 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
               {error}
             </p>
           )}
-          <button type="submit" className="btn-white" style={{ width: "100%", height: 58 }} disabled={!ready || busy}>
-            {busy ? t.paying : t.pay}
-          </button>
+          {wholeSalon ? (
+            <div className="whole" role="status">
+              <p>{t.wholeSalon}</p>
+              {SITE.phone ? (
+                <a className="btn-white" href={`tel:${SITE.phone.replace(/\s/g, "")}`} style={{ width: "100%", height: 58 }}>
+                  {t.callUs}: {SITE.phone}
+                </a>
+              ) : (
+                <b>{lang === "pl" ? "Numer infolinii wkrótce" : "Hotline number coming soon"}</b>
+              )}
+            </div>
+          ) : (
+            <button type="submit" className="btn-white" style={{ width: "100%", height: 58 }} disabled={!ready || busy}>
+              {busy ? t.paying : t.pay}
+            </button>
+          )}
           <p className="hint" style={{ fontSize: 12.5 }}>{t.hold}</p>
           <p className="hint" style={{ fontSize: 12.5 }}>{t.methods}</p>
           <p className="hint" style={{ fontSize: 12.5 }}>
@@ -444,6 +443,9 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
         .days { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; scrollbar-width: thin; }
         .day { flex: 0 0 auto; width: 74px; height: 92px; border-radius: 16px; border: 1px solid var(--line-2); background: #090909; display: grid; place-items: center; align-content: center; gap: 2px; cursor: pointer; }
         .day b { font-size: 26px; font-weight: 500; line-height: 1.1; }
+        .whole { display: grid; gap: 14px; padding: 18px; border-radius: 16px; border: 1px solid rgba(255,42,42,.45); background: rgba(255,42,42,.08); }
+        .whole p { margin: 0; color: #eee; line-height: 1.5; }
+        .whole .btn-white { display: inline-flex; align-items: center; justify-content: center; }
         .day small { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
         .day.on { background: #fff; color: #000; border-color: #fff; }
         .day.on small { color: #555; }
