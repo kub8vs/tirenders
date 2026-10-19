@@ -3,6 +3,9 @@ import { z } from "zod";
 import { BOOKING } from "@/config/site";
 import { staffUser } from "@/lib/auth";
 import { BookingError, cancelBooking, createBooking, rescheduleBooking } from "@/lib/bookings";
+import { sendEmail, sendSms } from "@/lib/notify";
+import { payLinkEmail, payLinkSms } from "@/lib/templates";
+import { payUrl } from "@/lib/tokens";
 
 const Create = z.object({
   action: z.literal("create"),
@@ -13,6 +16,7 @@ const Create = z.object({
   email: z.string().email(),
   phone: z.string().min(9),
   note: z.string().max(500).optional(),
+  payment: z.enum(["link", "onsite"]).default("link"),
 });
 const Cancel = z.object({ action: z.literal("cancel"), id: z.string(), refund: z.number().int().min(0).optional() });
 const Move = z.object({ action: z.literal("move"), id: z.string(), start: z.string().datetime(), simulatorId: z.string().optional() });
@@ -23,6 +27,15 @@ export async function POST(req: Request) {
   try {
     if (body?.action === "create") {
       const d = Create.parse(body);
+      if (d.payment === "link") {
+        // Rezerwacja telefoniczna z płatnością przez stronę: wszystkie stanowiska jako jedna grupa i jedna płatność.
+        // Termin jest zablokowany od razu; jeśli klient nie zapłaci w czasie, wraca do sprzedaży.
+        const { bookings } = await createBooking({ simulatorIds: d.simulatorIds, start: new Date(d.start), durationMin: d.durationMin, name: d.name, email: d.email, phone: d.phone, note: d.note, locale: "pl", source: "ADMIN", payLink: true });
+        const lead = bookings[0];
+        await sendSms(lead.phone, payLinkSms(bookings), lead.id);
+        await sendEmail({ to: lead.email, ...payLinkEmail(bookings), bookingId: lead.id });
+        return NextResponse.json({ ok: true, codes: bookings.map((b) => b.code), payUrl: payUrl(lead.code), holdExpiresAt: lead.holdExpiresAt });
+      }
       // Rezerwacja telefoniczna: od razu opłacona (płatność na miejscu). Kilka stanowisk = wyłączność.
       const created = [];
       for (const simulatorId of d.simulatorIds) {

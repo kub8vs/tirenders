@@ -50,7 +50,13 @@ export type NewBooking = {
   source?: "ONLINE" | "ADMIN";
   note?: string;
   markPaid?: boolean; // tylko panel obsługi
+  payLink?: boolean; // tylko panel obsługi: klient płaci linkiem z SMS-a, termin czeka do BOOKING.payLinkHours
 };
+
+/** Do kiedy rezerwacja telefoniczna czeka na zapłatę: payLinkHours, ale najpóźniej 2 h przed startem. */
+function payLinkDeadline(start: Date) {
+  return new Date(Math.min(Date.now() + BOOKING.payLinkHours * 60 * MIN, start.getTime() - 120 * MIN));
+}
 
 export async function createBooking(input: NewBooking) {
   const ids = [...new Set(input.simulatorIds?.length ? input.simulatorIds : input.simulatorId ? [input.simulatorId] : [])];
@@ -60,6 +66,8 @@ export async function createBooking(input: NewBooking) {
   if (!validStart(input.start, input.durationMin, new Date(), admin)) throw new BookingError("closed");
   const end = new Date(input.start.getTime() + input.durationMin * MIN);
   const q = await quote(ids, input.durationMin, input.discountCode);
+  const holdUntil = input.payLink ? payLinkDeadline(input.start) : new Date(Date.now() + BOOKING.holdMin * MIN);
+  if (input.payLink && holdUntil.getTime() < Date.now() + 30 * MIN) throw new BookingError("closed");
 
   const bookings = await prisma.$transaction(async (tx) => {
     await releaseStaleHolds(tx, ids, input.start, end);
@@ -91,7 +99,7 @@ export async function createBooking(input: NewBooking) {
             paidAt: input.markPaid ? new Date() : null,
             paymentProvider: input.markPaid ? "onsite" : null,
             paymentMethod: input.markPaid ? "ONSITE" : null,
-            holdExpiresAt: input.markPaid ? null : new Date(Date.now() + BOOKING.holdMin * MIN),
+            holdExpiresAt: input.markPaid ? null : holdUntil,
             source: input.source ?? "ONLINE",
             note: input.note ?? (q.groupPercent ? `Rabat grupowy ${q.groupPercent}% (${ids.length} stanowisk)` : undefined),
             locale: input.locale === "en" ? "en" : "pl",
@@ -111,8 +119,9 @@ export async function createBooking(input: NewBooking) {
     for (const b of bookings) await afterPaid(b);
     return { booking, bookings, checkoutUrl: null };
   }
-  const checkoutUrl = await createCheckout(bookings);
-  return { booking, bookings, checkoutUrl };
+  const checkout = await createCheckout(bookings, holdUntil);
+  if (checkout.ref) await prisma.booking.updateMany({ where: { id: { in: bookings.map((b) => b.id) } }, data: { paymentRef: checkout.ref } });
+  return { booking, bookings, checkoutUrl: checkout.url };
 }
 
 /** Czy ta rezerwacja dostaje SMS-y (w grupie tylko pierwsza, żeby nie wysyłać kilku na ten sam numer). */

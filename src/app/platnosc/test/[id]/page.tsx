@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { simById } from "@/config/site";
 import { prisma } from "@/lib/db";
-import { paymentsLive } from "@/lib/payments";
+import { testPayAllowed } from "@/lib/payments";
 import { pln } from "@/lib/pricing";
 import { fmtLong } from "@/lib/time";
 import TestPay from "./TestPay";
@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 // Lokalna bramka zastępująca Stripe, dopóki nie ma kluczy. Na produkcji niedostępna.
 export default async function Page({ params }: { params: { id: string } }) {
-  if (paymentsLive() || process.env.NODE_ENV === "production") notFound();
+  if (!testPayAllowed()) notFound();
   const b = await prisma.booking.findUnique({ where: { id: params.id } });
   if (!b) notFound();
   return (

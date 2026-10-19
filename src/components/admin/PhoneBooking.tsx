@@ -3,10 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-// Rezerwacje telefoniczne (powyżej 90 min = kilka bloków, wyłączność = wszystkie stanowiska). Płatność na miejscu.
+// Rezerwacje telefoniczne (powyżej 90 min = kilka bloków, wyłączność = wszystkie stanowiska).
+// Domyślnie klient dostaje SMS i mail z linkiem do zapłaty na stronie; termin jest zablokowany od razu.
 export default function PhoneBooking({ date, sims }: { date: string; sims: { id: string; name: string }[] }) {
   const router = useRouter();
-  const [f, setF] = useState({ time: "18:00", duration: 60, name: "", email: "", phone: "", note: "", sims: [] as string[] });
+  const [f, setF] = useState({ time: "18:00", duration: 60, name: "", email: "", phone: "", note: "", sims: [] as string[], payment: "link" as "link" | "onsite" });
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const toggle = (id: string) => setF({ ...f, sims: f.sims.includes(id) ? f.sims.filter((x) => x !== id) : [...f.sims, id] });
   const submit = async (e: React.FormEvent) => {
@@ -22,11 +23,16 @@ export default function PhoneBooking({ date, sims }: { date: string; sims: { id:
     const r = await fetch("/api/admin/bookings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "create", simulatorIds: f.sims, start: new Date(iso).toISOString(), durationMin: f.duration, name: f.name, email: f.email, phone: f.phone, note: f.note }),
+      body: JSON.stringify({ action: "create", simulatorIds: f.sims, start: new Date(iso).toISOString(), durationMin: f.duration, name: f.name, email: f.email, phone: f.phone, note: f.note, payment: f.payment }),
     });
     const d = await r.json().catch(() => ({}));
     if (r.ok) {
-      setMsg({ ok: true, text: `Dodano: ${d.codes.join(", ")}` });
+      setMsg({
+        ok: true,
+        text: d.payUrl
+          ? `Zablokowano: ${d.codes.join(", ")}. Klient dostał SMS i mail z linkiem do zapłaty (ważny do ${new Date(d.holdExpiresAt).toLocaleString("pl-PL", { timeZone: "Europe/Warsaw", dateStyle: "short", timeStyle: "short" })}): ${d.payUrl}`
+          : `Dodano: ${d.codes.join(", ")}`,
+      });
       router.refresh();
     } else setMsg({ ok: false, text: d.error === "slot_taken" ? "Któreś stanowisko jest wtedy zajęte (część mogła się zapisać – sprawdź kalendarz)." : d.error === "closed" ? "Poza godzinami otwarcia albo zła godzina (co 15 min)." : "Sprawdź dane." });
   };
@@ -51,9 +57,16 @@ export default function PhoneBooking({ date, sims }: { date: string; sims: { id:
         <div className="field"><label htmlFor="pb-name">Klient</label><input id="pb-name" className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></div>
         <div className="field"><label htmlFor="pb-phone">Telefon</label><input id="pb-phone" className="input" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></div>
         <div className="field"><label htmlFor="pb-email">E-mail</label><input id="pb-email" className="input" type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></div>
+        <div className="field">
+          <label htmlFor="pb-pay">Płatność</label>
+          <select id="pb-pay" className="input" value={f.payment} onChange={(e) => setF({ ...f, payment: e.target.value as "link" | "onsite" })}>
+            <option value="link">Link do zapłaty SMS-em</option>
+            <option value="onsite">Na miejscu</option>
+          </select>
+        </div>
         <div className="field"><label htmlFor="pb-note">Notatka</label><input id="pb-note" className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} placeholder="np. urodziny, 2 h – drugi blok dodaj osobno" /></div>
       </div>
-      <div><button className="btn-white" type="submit" disabled={!f.sims.length || !f.name || !f.phone || !f.email}>Dodaj rezerwację (płatność na miejscu)</button></div>
+      <div><button className="btn-white" type="submit" disabled={!f.sims.length || !f.name || !f.phone || !f.email}>{f.payment === "link" ? "Zablokuj termin i wyślij link do zapłaty" : "Dodaj rezerwację (płatność na miejscu)"}</button></div>
       {msg && <p className={msg.ok ? "ok" : "err"}>{msg.text}</p>}
     </form>
   );

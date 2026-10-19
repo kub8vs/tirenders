@@ -18,6 +18,12 @@ export function manageUrl(code: string) {
   return `${base}/rezerwacja/zarzadzaj?c=${code}&s=${sign("manage:" + code)}`;
 }
 
+/** Krótki link do zapłaty wysyłany SMS-em przy rezerwacji telefonicznej. */
+export function payUrl(code: string) {
+  const base = (process.env.APP_URL || "http://localhost:3100").replace(/\/$/, "");
+  return `${base}/zaplac/${code}?s=${sign("pay:" + code)}`;
+}
+
 const ALPHA = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 export function bookingCode() {
   const bytes = crypto.randomBytes(6);

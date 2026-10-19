@@ -37,6 +37,7 @@ export const BOOKING = {
   minLeadMin: 60, // najpóźniej godzinę przed
   maxDaysAhead: 14, // maks. 2 tygodnie do przodu
   holdMin: 10, // tyle czasu slot czeka na płatność
+  payLinkHours: 24, // rezerwacja przez telefon: tyle czasu klient ma na zapłatę linkiem z SMS-a (Stripe pozwala maks. 24 h)
   freeCancelHours: 12, // > 12 h przed: odwołanie i zwrot 100%
   rescheduleHours: 2, // 12–2 h przed: tylko zmiana terminu; < 2 h: nic
   arriveEarlyMin: 15, // prosimy być w salonie 15 min przed startem

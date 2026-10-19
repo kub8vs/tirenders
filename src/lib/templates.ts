@@ -2,7 +2,7 @@ import type { Booking } from "@prisma/client";
 import { BOOKING, SITE, simById } from "@/config/site";
 import { pln } from "./pricing";
 import { fmtLong, fmtDate, fmtTime } from "./time";
-import { manageUrl } from "./tokens";
+import { manageUrl, payUrl } from "./tokens";
 
 export const appUrl = () => (process.env.APP_URL || "http://localhost:3100").replace(/\/$/, "");
 
@@ -123,6 +123,32 @@ export function rescheduledEmail(b: Booking) {
   return l === "pl"
     ? { subject: `Nowy termin: ${fmtLong(b.start, l)}`, html: shell("Termin zmieniony.", `Zapisaliśmy nowy termin.${rows(b, l)}${btn(manageUrl(b.code), "Zarządzaj rezerwacją")}`) }
     : { subject: `New time: ${fmtLong(b.start, l)}`, html: shell("Rescheduled.", `Your new slot is saved.${rows(b, l)}${btn(manageUrl(b.code), "Manage booking")}`) };
+}
+
+/** Rezerwacja przez telefon: link do zapłaty (całość grupy w jednej płatności). */
+export function payLinkEmail(list: Booking[]) {
+  const b = list[0];
+  const total = list.reduce((a, x) => a + x.priceGross, 0);
+  const sims = list.map((x) => simById(x.simulatorId)?.name ?? x.simulatorId).join(", ");
+  const until = b.holdExpiresAt ? fmtLong(b.holdExpiresAt, "pl") : "";
+  return {
+    subject: `Zapłać za rezerwację ${b.code} · ${fmtLong(b.start, "pl")}`,
+    html: shell(
+      "Termin czeka na Ciebie.",
+      `Cześć ${b.name.split(" ")[0]}, zarezerwowaliśmy dla Ciebie: <b style="color:#fff">${sims}</b>, ${fmtLong(b.start, "pl")}, ${b.durationMin} min.
+<p>Do zapłaty: <b style="color:#fff">${pln(total, "pl")}</b> (BLIK, karta, Przelewy24). Termin trzymamy do <b style="color:#fff">${until}</b>, potem wraca do sprzedaży.</p>
+<p style="margin:24px 0">${btn(payUrl(b.code), "Zapłać i potwierdź")}</p>`,
+    ),
+    text: `Zapłać ${pln(total, "pl")} za rezerwację ${b.code}: ${payUrl(b.code)}`,
+  };
+}
+
+export function payLinkSms(list: Booking[]) {
+  const b = list[0];
+  const total = list.reduce((a, x) => a + x.priceGross, 0);
+  const when = `${fmtDate(b.start, "pl", { day: "2-digit", month: "2-digit" })} ${fmtTime(b.start)}`;
+  const until = b.holdExpiresAt ? `${fmtDate(b.holdExpiresAt, "pl", { day: "2-digit", month: "2-digit" })} ${fmtTime(b.holdExpiresAt)}` : "";
+  return `TIRENDERS: Rezerwacja ${when} czeka na platnosc ${(total / 100).toFixed(0)} zl do ${until}. Zaplac: ${payUrl(b.code)}`;
 }
 
 export function staffEmail(b: Booking) {
