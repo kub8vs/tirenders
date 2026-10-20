@@ -105,7 +105,7 @@ export default function PhoneBooking({ days, step, durations, sims }: { days: Da
       </div>
       <div className="field">
         <label>Płatność</label>
-        <p style={{ margin: 0 }}>Przez stronę: link do zapłaty SMS-em i mailem (BLIK, karta, Przelewy24).</p>
+        <p style={{ margin: 0 }}>Przez stronę: link do zapłaty SMS-em i mailem (BLIK, karta, Apple Pay, Google Pay).</p>
       </div>
       {q && (
         <div className="field" role="status">

@@ -59,7 +59,7 @@ const T = {
   },
 };
 
-const METHODS = ["BLIK", "Karta / Card", "Apple Pay", "Google Pay", "Przelewy24"];
+const METHODS = ["BLIK", "Karta / Card", "Apple Pay", "Google Pay"];
 
 export default function PricingInfo({ lang }: { lang: "pl" | "en" }) {
   const t = T[lang];

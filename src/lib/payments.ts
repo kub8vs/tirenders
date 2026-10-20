@@ -3,7 +3,7 @@ import type { Booking } from "@prisma/client";
 import { simById } from "@/config/site";
 import { appUrl } from "./templates";
 
-// Stripe Checkout: BLIK, karta (z Apple Pay / Google Pay), Przelewy24.
+// Stripe Checkout: BLIK i karta. Apple Pay / Google Pay działają w ramach "card" (bez przelewów).
 // Bez STRIPE_SECRET_KEY działa lokalna bramka testowa /platnosc/test/[id].
 
 let client: Stripe | null = null;
@@ -27,7 +27,7 @@ export async function createCheckout(list: Booking[], expiresAt?: Date): Promise
   const session = await s.checkout.sessions.create({
     mode: "payment",
     currency: "pln",
-    payment_method_types: ["blik", "card", "p24"],
+    payment_method_types: ["blik", "card"],
     customer_email: b.email,
     locale: b.locale === "en" ? "en" : "pl",
     line_items: list.map((x) => ({
