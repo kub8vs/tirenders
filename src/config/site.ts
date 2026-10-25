@@ -5,7 +5,7 @@ export const SITE = {
   brand: "Tirenders",
   salon: "2Real Simracing",
   city: "Warszawa",
-  openingDate: "2026-11-15", // TODO: potwierdzić dokładny dzień otwarcia
+  openingDate: "2026-11-14", // TODO: potwierdzić godzinę otwarcia
   address: null as string | null, // TODO: adres salonu („nie wiadomo jeszcze”)
   phone: null as string | null, // TODO: numer do rezerwacji > 90 min i wyłączności salonu
   email: "rezerwacje@tirenders.pl", // TODO: adres po zakupie domeny
