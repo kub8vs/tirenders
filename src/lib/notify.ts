@@ -7,7 +7,7 @@ export type Attachment = { filename: string; content: Buffer };
 
 export async function sendEmail(opts: { to: string; subject: string; html: string; text?: string; attachments?: Attachment[]; bookingId?: string }) {
   const key = process.env.RESEND_API_KEY;
-  const from = process.env.MAIL_FROM || "Tirenders <rezerwacje@tirenders.pl>";
+  const from = process.env.MAIL_FROM || "2Real Simracing <rezerwacje@tirenders.pl>";
   let status = "DEV";
   let error: string | undefined;
   if (key) {

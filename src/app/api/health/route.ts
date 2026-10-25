@@ -22,7 +22,7 @@ function configCheck() {
     config: {
       baza: has("DATABASE_URL") && has("DATABASE_URL_UNPOOLED"),
       ochronaPrzedBotami: has("KV_REST_API_URL") && has("KV_REST_API_TOKEN"),
-      maile: has("RESEND_API_KEY") && has("MAIL_FROM"),
+      maile: has("RESEND_API_KEY"),
       wlasciciel: has("OWNER_EMAILS"),
       sekretLogowania: has("AUTH_SECRET"),
       platnosciStripe: has("STRIPE_SECRET_KEY") && has("STRIPE_WEBHOOK_SECRET"),
