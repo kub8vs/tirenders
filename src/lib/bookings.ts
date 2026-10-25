@@ -20,7 +20,14 @@ export class BookingError extends Error {
 /** Baza odrzuciła zapis, bo termin nachodzi na inną aktywną rezerwację (constraint booking_no_overlap). */
 export function isOverlapError(e: unknown) {
   const msg = e instanceof Error ? e.message : String(e);
-  return msg.includes("booking_no_overlap") || msg.includes("23P01");
+  // 40P01: dwie osoby naraz na ten sam termin, baza przepuszcza jedną, druga dostaje „zajęte”.
+  return msg.includes("booking_no_overlap") || msg.includes("23P01") || msg.includes("40P01");
+}
+
+/** Chwilowy tłok w połączeniach z bazą (np. tysiące kliknięć na otwarciu). Klient próbuje ponownie. */
+export function isBusyError(e: unknown) {
+  const msg = e instanceof Error ? e.message : String(e);
+  return (e as { code?: string })?.code === "P2024" || msg.includes("connection pool") || msg.includes("too many connections");
 }
 
 /** Holdy, którym minęło 10 min, zwalniają termin od razu, zanim ktoś spróbuje go kupić (cron robi to też co minutę). */

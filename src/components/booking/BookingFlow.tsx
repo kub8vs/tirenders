@@ -56,6 +56,7 @@ const T = {
     rate: "Za dużo prób w krótkim czasie. Odczekaj minutę i spróbuj ponownie.",
     invalid: "Sprawdź dane w formularzu.",
     server: "Coś poszło nie tak po naszej stronie. Spróbuj ponownie za chwilę.",
+    busy: "Bardzo dużo osób rezerwuje w tej chwili. Kliknij jeszcze raz za kilka sekund.",
     change: "zmień",
     min: "min",
     account: "Masz konto? Zaloguj się, a rezerwacja trafi do Twojego profilu.",
@@ -107,6 +108,7 @@ const T = {
     rate: "Too many attempts in a short time. Wait a minute and try again.",
     invalid: "Check the form details.",
     server: "Something went wrong on our side. Try again in a moment.",
+    busy: "Lots of people are booking right now. Click again in a few seconds.",
     change: "change",
     min: "min",
     account: "Have an account? Sign in and the booking lands in your profile.",
@@ -194,12 +196,17 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
     if (!ready || busy || wholeSalon) return;
     setBusy(true);
     setError(null);
-    const res = await fetch("/api/bookings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ simulatorIds: sims, start, durationMin: duration, firstName: form.first, lastName: form.last, email: form.email, phone: form.phone, discountCode: quote?.codeApplied ? form.code : null, terms: true, lang }),
-    });
-    const d = await res.json().catch(() => ({}));
+    const body = JSON.stringify({ simulatorIds: sims, start, durationMin: duration, firstName: form.first, lastName: form.last, email: form.email, phone: form.phone, discountCode: quote?.codeApplied ? form.code : null, terms: true, lang });
+    // Przy tłumie (otwarcie) serwer może chwilowo odpowiedzieć „zajęty”: próbujemy jeszcze dwa razy, w losowym odstępie.
+    let res: Response | null = null;
+    let d: { error?: string; checkoutUrl?: string } = {};
+    for (let i = 0; i < 3; i++) {
+      if (i) await new Promise((r) => setTimeout(r, 800 + Math.random() * 1700));
+      res = await fetch("/api/bookings", { method: "POST", headers: { "Content-Type": "application/json" }, body }).catch(() => null);
+      d = res ? await res.json().catch(() => ({})) : { error: "busy" };
+      if (d.error !== "busy") break;
+    }
+    if (!res) res = new Response(null, { status: 503 });
     if (res.ok && d.checkoutUrl) {
       window.location.href = d.checkoutUrl;
       return;
@@ -213,6 +220,7 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
     else if (d.error === "rate") setError(t.rate);
     else if (d.error === "whole_salon") setError(t.wholeSalon);
     else if (d.error === "invalid") setError(t.invalid);
+    else if (d.error === "busy") setError(t.busy);
     else setError(t.server);
   };
 

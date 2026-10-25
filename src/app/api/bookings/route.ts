@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { BOOKING, activeSims } from "@/config/site";
 import { currentUser } from "@/lib/auth";
-import { BookingError, createBooking } from "@/lib/bookings";
+import { BookingError, createBooking, isBusyError } from "@/lib/bookings";
 import { prisma } from "@/lib/db";
+import { alarm } from "@/lib/alarm";
 import { allow, clientIp } from "@/lib/ratelimit";
 
 const Body = z.object({
@@ -21,6 +22,16 @@ const Body = z.object({
 });
 
 export async function POST(req: Request) {
+  try {
+    return await handle(req);
+  } catch (e) {
+    if (isBusyError(e)) return NextResponse.json({ error: "busy" }, { status: 503, headers: { "Retry-After": "2" } });
+    await alarm("rezerwacja online", e);
+    return NextResponse.json({ error: "server" }, { status: 500 });
+  }
+}
+
+async function handle(req: Request) {
   // Limit na adres IP jest luźny, bo goście w salonie mogą dzielić jedno Wi-Fi.
   if (!(await allow(`book:ip:${clientIp(req)}`, 30, 60))) return NextResponse.json({ error: "rate" }, { status: 429 });
   const parsed = Body.safeParse(await req.json().catch(() => null));
@@ -54,7 +65,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ id: booking.id, code: booking.code, holdExpiresAt: booking.holdExpiresAt, checkoutUrl });
   } catch (e) {
     if (e instanceof BookingError) return NextResponse.json({ error: e.code }, { status: 409 });
-    console.error(e);
-    return NextResponse.json({ error: "server" }, { status: 500 });
+    throw e;
   }
 }

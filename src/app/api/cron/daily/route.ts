@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { alarm } from "@/lib/alarm";
 import { cronAuthorized } from "@/lib/cron";
 import { prisma } from "@/lib/db";
 import { deskMail } from "@/lib/reception";
@@ -14,7 +15,15 @@ export const dynamic = "force-dynamic";
 // a 1. dnia miesiąca dodatkowo raport za poprzedni miesiąc.
 export async function GET(req: Request) {
   if (!cronAuthorized(req)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  try {
+    return await daily();
+  } catch (e) {
+    await alarm("poranna lista recepcji i raporty (cron)", e);
+    return NextResponse.json({ error: "server" }, { status: 500 });
+  }
+}
 
+async function daily() {
   const date = todayWarsaw();
   const desk = (await prisma.user.findMany({ where: { role: "STAFF" }, select: { email: true } })).map((u) => u.email);
   if (desk.length) {

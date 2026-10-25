@@ -1,0 +1,48 @@
+# Czuwanie nad stroną: co 5 minut sprawdza, czy tirenders.pl i baza odpowiadają.
+# Gdy nie, zakłada zgłoszenie (Issue) w repozytorium, a GitHub wysyła o nim maila właścicielowi.
+# Gdy strona wróci, zgłoszenie samo się zamyka. Działa od chwili, gdy ten plik jest na gałęzi main.
+name: Czuwanie nad stroną
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+permissions:
+  issues: write
+concurrency: czuwanie
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Sprawdź stronę i bazę
+        id: health
+        run: |
+          ok=0
+          for i in 1 2 3; do
+            code=$(curl -s -o body.txt -w "%{http_code}" --max-time 20 https://www.tirenders.pl/api/health || echo 000)
+            if [ "$code" = "200" ] && grep -q '"ok":true' body.txt; then ok=1; break; fi
+            sleep 20
+          done
+          echo "ok=$ok" >> "$GITHUB_OUTPUT"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+      - name: Zgłoś awarię albo zamknij zgłoszenie
+        uses: actions/github-script@v7
+        env:
+          OK: ${{ steps.health.outputs.ok }}
+          CODE: ${{ steps.health.outputs.code }}
+        with:
+          script: |
+            const title = "Awaria: tirenders.pl nie odpowiada";
+            const { data: open } = await github.rest.issues.listForRepo({ ...context.repo, state: "open", labels: "awaria" });
+            const current = open.find((i) => i.title === title);
+            const when = new Date().toLocaleString("pl-PL", { timeZone: "Europe/Warsaw" });
+            if (process.env.OK === "1") {
+              if (current) {
+                await github.rest.issues.createComment({ ...context.repo, issue_number: current.number, body: `Strona znów działa (${when}).` });
+                await github.rest.issues.update({ ...context.repo, issue_number: current.number, state: "closed" });
+              }
+              return;
+            }
+            if (!current) {
+              await github.rest.issues.create({ ...context.repo, title, labels: ["awaria"], body: `Od ${when} strona albo baza nie odpowiada (kod ${process.env.CODE}, 3 próby co 20 s).\n\nSprawdź: https://vercel.com/kubzxcs-projects/tirenders-vr52 (Logs i Deployments).` });
+            }
