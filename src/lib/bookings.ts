@@ -6,6 +6,7 @@ import { prisma } from "./db";
 import { sendEmail, sendSms } from "./notify";
 import { createCheckout, expireCheckout, refund, stripe } from "./payments";
 import { quote } from "./pricing";
+import { serviceBlocks, services } from "./sims";
 import { cancelledEmail, confirmationEmail, confirmationSms, rescheduledEmail, staffEmail } from "./templates";
 import { MIN } from "./time";
 import { bookingCode } from "./tokens";
@@ -75,7 +76,8 @@ export async function createBooking(input: NewBooking) {
   // Bez długiej transakcji: przy tysiącach kliknięć każda rezerwacja to kilka krótkich zapytań,
   // a o tym, kto dostał termin, decyduje ograniczenie booking_no_overlap w bazie.
   await releaseStaleHolds(prisma, ids, input.start, end);
-  for (const id of ids) if (!(await isFree(prisma, id, input.start, end))) throw new BookingError("slot_taken");
+  const service = await services();
+  for (const id of ids) if (serviceBlocks(service, id, input.start) || !(await isFree(prisma, id, input.start, end))) throw new BookingError("slot_taken");
   const firstName = input.firstName.trim();
   const lastName = input.lastName.trim();
   const email = input.email.trim().toLowerCase();
@@ -247,6 +249,7 @@ export async function rescheduleBooking(id: string, newStart: Date, newSimId: st
   if (!sim || sim.status !== "ACTIVE") throw new BookingError("invalid");
   // Zmiana na droższe stanowisko wymagałaby dopłaty – klient może wybrać tylko tę samą grupę cenową.
   if (by === "customer" && sim.priceGroup !== simById(b.simulatorId)?.priceGroup) throw new BookingError("not_allowed");
+  if (serviceBlocks(await services(), simulatorId, newStart)) throw new BookingError("slot_taken");
   const end = new Date(newStart.getTime() + b.durationMin * MIN);
   const updated = await prisma.$transaction(async (tx) => {
     await releaseStaleHolds(tx, [simulatorId], newStart, end);

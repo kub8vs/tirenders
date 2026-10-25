@@ -1,9 +1,11 @@
 import { redirect } from "next/navigation";
 import { Heat } from "@/components/panel/Charts";
 import PeriodTabs, { periodOf } from "@/components/panel/PeriodTabs";
-import { PRICES, SIMULATORS } from "@/config/site";
+import SimService from "@/components/panel/SimService";
+import { PRICES } from "@/config/site";
 import { staffUser } from "@/lib/auth";
 import { pln } from "@/lib/pricing";
+import { liveSims, serviceBoard } from "@/lib/sims";
 import { heatmap, lastDays, openMinutes, pct, periodStats } from "@/lib/stats";
 import { zoned } from "@/lib/time";
 
@@ -16,7 +18,7 @@ export default async function Page({ searchParams }: { searchParams: { p?: strin
   if (!(await staffUser("sims"))) redirect("/panel");
   const days = periodOf(searchParams.p);
   const r = lastDays(days);
-  const s = await periodStats(r);
+  const [s, sims, service] = await Promise.all([periodStats(r), liveSims(), serviceBoard()]);
   const open = openMinutes(r);
   return (
     <>
@@ -24,8 +26,11 @@ export default async function Page({ searchParams }: { searchParams: { p?: strin
         <h1>Symulatory</h1>
         <PeriodTabs base="/panel/symulatory" current={days} />
       </div>
+      <h2 style={{ marginTop: 0 }}>Serwis</h2>
+      <SimService rows={service} />
+      <h2>Statystyki stanowisk</h2>
       <div className="cards">
-        {SIMULATORS.map((sim) => {
+        {sims.map((sim) => {
           const list = s.live.filter((b) => b.simulatorId === sim.id);
           const minutes = list.reduce((x, b) => x + b.durationMin, 0);
           const revenue = s.paid.filter((b) => b.simulatorId === sim.id).reduce((x, b) => x + b.priceGross - b.refundAmount, 0);

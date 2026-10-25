@@ -112,6 +112,7 @@ export const ADMIN_ACCESS = {
   sales: ["OWNER", "STAFF"],
   refunds: ["OWNER"],
   sims: ["OWNER"],
+  service: ["OWNER", "STAFF"], // wyłączenie stanowiska na serwis (recepcja też, bo jest na miejscu)
   site: ["OWNER"],
   customers: ["OWNER"],
   finance: ["OWNER"],

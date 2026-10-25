@@ -197,6 +197,45 @@ export async function buildWorkbook(r: Range, title: string) {
   oc.getColumn("pct").numFmt = "0.0%";
   oc.getColumn("revenue").numFmt = money;
 
+  // Osobny arkusz dla każdego stanowiska: kto, kiedy, ile zapłacił, czy przyszedł.
+  for (const sim of SIMULATORS.filter((x) => x.status !== "COMING_SOON")) {
+    const ws = wb.addWorksheet(sim.name.replace(/[\\/?*[\]:]/g, " ").slice(0, 31));
+    ws.columns = [
+      { header: "Data", key: "date", width: 12 },
+      { header: "Od", key: "from", width: 8 },
+      { header: "Do", key: "to", width: 8 },
+      { header: "Czas (min)", key: "dur", width: 10 },
+      { header: "Klient", key: "name", width: 24 },
+      { header: "Telefon", key: "phone", width: 15 },
+      { header: "Kod", key: "code", width: 10 },
+      { header: "Status", key: "status", width: 18 },
+      { header: "Przyszedł o", key: "checkin", width: 11 },
+      { header: "Zapłacono brutto", key: "gross", width: 15 },
+    ];
+    head(ws);
+    const list = d.bookings.filter((b) => b.simulatorId === sim.id);
+    for (const b of list) {
+      ws.addRow({
+        date: fmtDate(b.start, "pl", { year: "numeric", month: "2-digit", day: "2-digit" }),
+        from: fmtTime(b.start),
+        to: fmtTime(b.end),
+        dur: b.durationMin,
+        name: b.name,
+        phone: b.phone,
+        code: b.code,
+        status: STATUS_LABEL[b.status] ?? b.status,
+        checkin: b.checkedInAt ? fmtTime(b.checkedInAt) : "",
+        gross: zl(b.paidAt ? b.priceGross - b.refundAmount : 0),
+      });
+    }
+    const o = d.occupancy.find((x) => x.sim === sim.name);
+    ws.addRow({});
+    const total = ws.addRow({ date: "Razem", dur: o?.minutes ?? 0, name: `${o?.sessions ?? 0} jazd, obłożenie ${((o?.pct ?? 0) * 100).toFixed(1)}%`, gross: zl(o?.revenue ?? 0) });
+    total.font = { bold: true };
+    ws.getColumn("gross").numFmt = money;
+    if (list.length) ws.autoFilter = { from: "A1", to: "J1" };
+  }
+
   // Zwroty i odwołania
   const cx = wb.addWorksheet("Zwroty i odwołania");
   cx.columns = [

@@ -38,6 +38,10 @@ model Simulator {
   priceGroup  String // STANDARD | GT3 | MOTION5 | MOTION6
   status      String    @default("ACTIVE") // ACTIVE | COMING_SOON | OUT_OF_SERVICE
   sortOrder   Int       @default(0)
+  // Serwis ustawiany w panelu: od teraz do serviceUntil (puste = do odwołania) nie da się rezerwować.
+  serviceNote  String?
+  serviceUntil DateTime?
+  serviceBy    String?
   bookings    Booking[]
 }
 
