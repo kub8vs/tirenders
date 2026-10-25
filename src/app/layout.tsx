@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from "next";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Inter, Racing_Sans_One } from "next/font/google";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
@@ -47,6 +49,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Reveal />
           <Motion />
         </Providers>
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
