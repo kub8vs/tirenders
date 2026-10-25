@@ -1,9 +1,10 @@
 import { Prisma, type Booking } from "@prisma/client";
+import type Stripe from "stripe";
 import { BOOKING, SITE, simById } from "@/config/site";
 import { isFree, validStart } from "./availability";
 import { prisma } from "./db";
 import { sendEmail, sendSms } from "./notify";
-import { createCheckout, expireCheckout, refund } from "./payments";
+import { createCheckout, expireCheckout, refund, stripe } from "./payments";
 import { quote } from "./pricing";
 import { cancelledEmail, confirmationEmail, confirmationSms, rescheduledEmail, staffEmail } from "./templates";
 import { MIN } from "./time";
@@ -131,6 +132,17 @@ export async function markPaid(bookingId: string, ref: { provider: string; ref?:
     if (g.id === first.id && r) out = r;
   }
   return out;
+}
+
+/** Zapasowe potwierdzenie płatności po powrocie ze Stripe (gdy webhook się spóźnia albo nie dociera). */
+export async function syncStripePayment(b: Booking) {
+  const s = stripe();
+  if (!s || !b.paymentRef || !["PENDING", "EXPIRED"].includes(b.status)) return b;
+  const session = await s.checkout.sessions.retrieve(b.paymentRef, { expand: ["payment_intent.payment_method"] }).catch(() => null);
+  if (!session || session.payment_status !== "paid") return b;
+  const pi = session.payment_intent as Stripe.PaymentIntent | null;
+  const method = (pi?.payment_method as Stripe.PaymentMethod | null)?.type;
+  return (await markPaid(b.id, { provider: "stripe", ref: session.id, method })) ?? b;
 }
 
 async function markOnePaid(bookingId: string, ref: { provider: string; ref?: string; method?: string }) {

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { simById } from "@/config/site";
+import { syncStripePayment } from "@/lib/bookings";
 import { prisma } from "@/lib/db";
 import { getLang, tr } from "@/lib/i18n";
 import { pln } from "@/lib/pricing";
@@ -12,7 +13,8 @@ export const metadata = { title: "Rezerwacja potwierdzona" };
 
 export default async function Page({ searchParams }: { searchParams: { b?: string } }) {
   const l = getLang();
-  const b = searchParams.b ? await prisma.booking.findUnique({ where: { id: searchParams.b } }) : null;
+  const found = searchParams.b ? await prisma.booking.findUnique({ where: { id: searchParams.b } }) : null;
+  const b = found ? await syncStripePayment(found) : null;
   const paid = b && ["PAID", "COMPLETED"].includes(b.status);
   const group = b?.groupId ? await prisma.booking.findMany({ where: { groupId: b.groupId, id: { not: b.id } }, orderBy: { createdAt: "asc" } }) : [];
   return (
