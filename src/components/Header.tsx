@@ -43,7 +43,7 @@ export default function Header({ t, lang }: { t: Dict; lang: Lang }) {
     document.cookie = `lang=${lang === "pl" ? "en" : "pl"}; path=/; max-age=31536000; samesite=lax`;
     router.refresh();
   };
-  if (path.startsWith("/admin")) return null;
+  if (path.startsWith("/panel")) return null;
 
   return (
     <>

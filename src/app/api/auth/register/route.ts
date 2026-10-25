@@ -17,7 +17,8 @@ export async function POST(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: "invalid" }, { status: 400 });
   const email = parsed.data.email.trim().toLowerCase();
   const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing?.passwordHash) return NextResponse.json({ error: "exists" }, { status: 409 });
+  // Konta zespołu (recepcja, właściciel) ustawiają hasło tylko linkiem z maila, nigdy przez rejestrację.
+  if (existing?.passwordHash || (existing && existing.role !== "CUSTOMER")) return NextResponse.json({ error: "exists" }, { status: 409 });
   const passwordHash = await bcrypt.hash(parsed.data.password, 10);
   await prisma.user.upsert({
     where: { email },

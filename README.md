@@ -13,7 +13,7 @@ npm run db:seed
 npm run dev            # http://localhost:3100
 ```
 
-Panel obsługi: `/admin` (konto właściciela z `SEED_OWNER_EMAIL` / `SEED_OWNER_PASSWORD`).
+Panel: `/panel` (logowanie e-mailem i hasłem; konto właściciela z `SEED_OWNER_EMAIL` / `SEED_OWNER_PASSWORD`, a osoby z zespołu dodaje się w zakładce Zespół i dostają link do ustawienia hasła). Statystyki odwiedzin w panelu wymagają `VERCEL_API_TOKEN`.
 Bez kluczy Stripe/Resend/SMSAPI wszystko działa w trybie testowym: płatność przez `/platnosc/test/...`,
 wiadomości widać w panelu w zakładce „Powiadomienia”.
 

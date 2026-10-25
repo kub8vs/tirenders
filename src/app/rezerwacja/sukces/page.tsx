@@ -29,13 +29,11 @@ export default async function Page({ searchParams }: { searchParams: { b?: strin
             {fmtLong(b.start, l)} · {simById(b.simulatorId)?.name} · {b.durationMin} min · {pln(b.priceGross, l)}
           </p>
           <div style={{ display: "flex", gap: 28, alignItems: "center", flexWrap: "wrap", marginTop: 40 }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={`/api/qr/${b.code}`} alt={`QR ${b.code}`} width={170} height={170} style={{ background: "#fff", padding: 10, borderRadius: 14 }} />
             <div style={{ display: "grid", gap: 10 }}>
               <span className="eyebrow">{tr(l, { pl: "Kod rezerwacji", en: "Booking code" })}</span>
               <b style={{ fontSize: 40, fontWeight: 500, letterSpacing: ".18em" }}>{b.code}</b>
               <span style={{ color: "var(--muted)", maxWidth: "44ch" }}>
-                {tr(l, { pl: "Wysłaliśmy go też mailem i SMS-em. Pokaż QR przy wejściu.", en: "We've also sent it by email and SMS. Show the QR at the door." })}
+                {tr(l, { pl: "Wysłaliśmy go też mailem i SMS-em. Na recepcji podaj ten kod albo imię i nazwisko.", en: "We've also sent it by email and SMS. Give this code or your name at the front desk." })}
               </span>
             </div>
           </div>
@@ -48,7 +46,7 @@ export default async function Page({ searchParams }: { searchParams: { b?: strin
                   <span style={{ color: "var(--muted)" }}>{simById(g.simulatorId)?.name} · {pln(g.priceGross, l)}</span>
                 </a>
               ))}
-              <span style={{ color: "var(--muted)", fontSize: 14 }}>{tr(l, { pl: "Każde stanowisko ma własny kod i QR w mailu.", en: "Each rig has its own code and QR in the email." })}</span>
+              <span style={{ color: "var(--muted)", fontSize: 14 }}>{tr(l, { pl: "Każde stanowisko ma własny kod, wszystkie są w mailu.", en: "Each rig has its own code, all of them are in the email." })}</span>
             </div>
           )}
           <div style={{ display: "flex", gap: 10, marginTop: 40, flexWrap: "wrap" }}>

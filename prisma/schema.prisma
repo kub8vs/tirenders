@@ -26,6 +26,7 @@ model User {
 model MagicToken {
   token     String   @id
   email     String
+  purpose   String   @default("login") // login | password (ustawienie hasła do panelu)
   expiresAt DateTime
   usedAt    DateTime?
   createdAt DateTime @default(now())
@@ -47,7 +48,11 @@ model Booking {
   simulator       Simulator @relation(fields: [simulatorId], references: [id])
   userId          String?
   user            User?     @relation(fields: [userId], references: [id])
-  name            String
+  customerId      String?
+  customer        Customer? @relation(fields: [customerId], references: [id])
+  name            String // imię i nazwisko razem (do maili i wydruków)
+  firstName       String?
+  lastName        String?
   email           String
   phone           String
   start           DateTime
@@ -64,6 +69,7 @@ model Booking {
   paymentMethod   String?
   paidAt          DateTime?
   checkedInAt     DateTime?
+  checkedInBy     String? // e-mail osoby z recepcji, która potwierdziła przyjście
   cancelledAt     DateTime?
   refundAmount    Int       @default(0)
   source          String    @default("ONLINE") // ONLINE | ADMIN
@@ -79,6 +85,38 @@ model Booking {
   @@index([status])
   @@index([email])
   @@index([groupId])
+  @@index([customerId])
+}
+
+// Karta gościa: jedna na adres e-mail, wszystkie jego rezerwacje są do niej podpięte.
+model Customer {
+  id               String    @id @default(cuid())
+  email            String    @unique
+  firstName        String
+  lastName         String
+  phone            String
+  locale           String    @default("pl")
+  marketingConsent Boolean   @default(false)
+  note             String? // notatka recepcji, np. "woli fotel do przodu"
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  bookings         Booking[]
+
+  @@index([lastName])
+  @@index([phone])
+}
+
+// Historia zmian w panelu: kto, co i kiedy (przyjęcie gościa, odwołanie, zwrot, zmiana roli…).
+model AuditLog {
+  id        String   @id @default(cuid())
+  actor     String // e-mail osoby albo "system"
+  action    String
+  bookingId String?
+  details   String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([bookingId])
 }
 
 model DiscountCode {

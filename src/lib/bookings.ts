@@ -42,7 +42,8 @@ export type NewBooking = {
   simulatorIds?: string[]; // kilka stanowisk na ten sam termin = rezerwacja grupowa z rabatem
   start: Date;
   durationMin: number;
-  name: string;
+  firstName: string;
+  lastName: string;
   email: string;
   phone: string;
   discountCode?: string | null;
@@ -75,6 +76,17 @@ export async function createBooking(input: NewBooking) {
   // a o tym, kto dostał termin, decyduje ograniczenie booking_no_overlap w bazie.
   await releaseStaleHolds(prisma, ids, input.start, end);
   for (const id of ids) if (!(await isFree(prisma, id, input.start, end))) throw new BookingError("slot_taken");
+  const firstName = input.firstName.trim();
+  const lastName = input.lastName.trim();
+  const email = input.email.trim().toLowerCase();
+  const phone = input.phone.trim();
+  const locale = input.locale === "en" ? "en" : "pl";
+  // Karta gościa: zawsze najświeższe dane z ostatniej rezerwacji (notatka recepcji zostaje).
+  const customer = await prisma.customer.upsert({
+    where: { email },
+    update: { firstName, lastName, phone, locale },
+    create: { email, firstName, lastName, phone, locale },
+  });
   const codes = q.items.map(() => bookingCode());
   const groupId = ids.length > 1 ? codes[0] : null;
   const rows: Prisma.BookingCreateInput[] = q.items.map((item, i) => ({
@@ -82,9 +94,12 @@ export async function createBooking(input: NewBooking) {
     groupId,
     simulator: { connect: { id: item.simulatorId } },
     ...(input.userId ? { user: { connect: { id: input.userId } } } : {}),
-    name: input.name.trim(),
-    email: input.email.trim().toLowerCase(),
-    phone: input.phone.trim(),
+    customer: { connect: { id: customer.id } },
+    name: `${firstName} ${lastName}`,
+    firstName,
+    lastName,
+    email,
+    phone,
     start: input.start,
     end,
     durationMin: input.durationMin,
@@ -99,7 +114,7 @@ export async function createBooking(input: NewBooking) {
     holdExpiresAt: input.markPaid ? null : holdUntil,
     source: input.source ?? "ONLINE",
     note: input.note ?? (q.groupPercent ? `Rabat grupowy ${q.groupPercent}% (${ids.length} stanowisk)` : undefined),
-    locale: input.locale === "en" ? "en" : "pl",
+    locale,
   }));
   // Cała grupa zapisuje się w jednej transakcji albo wcale.
   const bookings: Booking[] = await prisma.$transaction(rows.map((data) => prisma.booking.create({ data }))).catch((e) => {

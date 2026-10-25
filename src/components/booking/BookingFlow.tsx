@@ -7,6 +7,7 @@ import SalonPlan from "./SalonPlan";
 
 type Slot = { start: string; free: string[] };
 type Prefill = { name: string; email: string; phone: string } | null;
+const splitName = (n = "") => { const [f = "", ...r] = n.trim().split(/\s+/); return { first: f, last: r.join(" ") }; };
 
 const T = {
   pl: {
@@ -32,7 +33,8 @@ const T = {
     rigs: "Stanowiska",
     pickTime: "Najpierw wybierz godzinę: pokażemy, co jest wtedy wolne.",
     step5: "Twoje dane",
-    name: "Imię i nazwisko",
+    firstName: "Imię",
+    lastName: "Nazwisko",
     email: "E-mail",
     phone: "Telefon (SMS z przypomnieniem)",
     code: "Kod rabatowy",
@@ -82,7 +84,8 @@ const T = {
     rigs: "Rigs",
     pickTime: "Pick a time first: we'll show what's free then.",
     step5: "Your details",
-    name: "Full name",
+    firstName: "First name",
+    lastName: "Last name",
     email: "Email",
     phone: "Phone (SMS reminder)",
     code: "Discount code",
@@ -133,7 +136,7 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
   const toggleSim = (id: string) => setSims((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
   // Cały salon można zaznaczyć, ale zapłacić online nie: rezerwuje go obsługa po telefonie (panel → Rezerwacja telefoniczna).
   const wholeSalon = sims.length >= activeSims().length;
-  const [form, setForm] = useState({ name: prefill?.name ?? "", email: prefill?.email ?? "", phone: prefill?.phone ?? "", code: "", terms: false });
+  const [form, setForm] = useState({ first: splitName(prefill?.name).first, last: splitName(prefill?.name).last, email: prefill?.email ?? "", phone: prefill?.phone ?? "", code: "", terms: false });
   const [quote, setQuote] = useState<{ list: number; discount: number; total: number; codeValid: boolean | null; codeApplied: boolean; groupPercent: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -184,7 +187,7 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
   }, [sims.join(","), duration]);
 
   const price = (s: SimDef) => PRICES[s.priceGroup][duration as 15];
-  const ready = !!(start && sims.length && form.name.trim().length > 1 && /\S+@\S+\.\S+/.test(form.email) && form.phone.replace(/\D/g, "").length >= 9 && form.terms);
+  const ready = !!(start && sims.length && form.first.trim().length > 1 && form.last.trim().length > 1 && /\S+@\S+\.\S+/.test(form.email) && form.phone.replace(/\D/g, "").length >= 9 && form.terms);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -194,7 +197,7 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
     const res = await fetch("/api/bookings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ simulatorIds: sims, start, durationMin: duration, name: form.name, email: form.email, phone: form.phone, discountCode: quote?.codeApplied ? form.code : null, terms: true, lang }),
+      body: JSON.stringify({ simulatorIds: sims, start, durationMin: duration, firstName: form.first, lastName: form.last, email: form.email, phone: form.phone, discountCode: quote?.codeApplied ? form.code : null, terms: true, lang }),
     });
     const d = await res.json().catch(() => ({}));
     if (res.ok && d.checkoutUrl) {
@@ -329,8 +332,12 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
           )}
           <div className="form-grid">
             <div className="field">
-              <label htmlFor="bk-name">{t.name}</label>
-              <input id="bk-name" className="input" autoComplete="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+              <label htmlFor="bk-first">{t.firstName}</label>
+              <input id="bk-first" className="input" autoComplete="given-name" value={form.first} onChange={(e) => setForm({ ...form, first: e.target.value })} required />
+            </div>
+            <div className="field">
+              <label htmlFor="bk-last">{t.lastName}</label>
+              <input id="bk-last" className="input" autoComplete="family-name" value={form.last} onChange={(e) => setForm({ ...form, last: e.target.value })} required />
             </div>
             <div className="field">
               <label htmlFor="bk-email">{t.email}</label>

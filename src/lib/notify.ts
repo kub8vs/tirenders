@@ -1,7 +1,7 @@
 import { prisma } from "./db";
 
 // E-mail: Resend (RESEND_API_KEY, MAIL_FROM). SMS: SMSAPI.pl (SMSAPI_TOKEN, SMS_FROM).
-// Bez kluczy wiadomości trafiają tylko do logu (status DEV) – widać je w panelu /admin/powiadomienia.
+// Bez kluczy wiadomości trafiają tylko do logu (status DEV) – widać je w panelu /panel/powiadomienia.
 
 export type Attachment = { filename: string; content: Buffer };
 

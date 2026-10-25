@@ -1,12 +1,11 @@
 import type { Metadata, Viewport } from "next";
-import { Analytics } from "@vercel/analytics/next";
-import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Inter, Racing_Sans_One } from "next/font/google";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import Providers from "@/components/Providers";
 import Motion from "@/components/Motion";
 import Reveal from "@/components/Reveal";
+import SiteAnalytics from "@/components/SiteAnalytics";
 import { getDict, getLang } from "@/lib/i18n";
 import { siteUrl } from "@/lib/tokens";
 import "./globals.css";
@@ -49,8 +48,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Reveal />
           <Motion />
         </Providers>
-        <Analytics />
-        <SpeedInsights />
+        <SiteAnalytics />
       </body>
     </html>
   );

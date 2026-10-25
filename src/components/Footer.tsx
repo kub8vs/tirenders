@@ -7,7 +7,7 @@ import type { Dict } from "@/content/dict";
 
 export default function Footer({ t }: { t: Dict }) {
   const path = usePathname();
-  if (path.startsWith("/admin")) return null;
+  if (path.startsWith("/panel")) return null;
   return (
     <footer className="site-footer">
       <div className="wrap">

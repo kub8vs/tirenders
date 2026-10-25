@@ -38,13 +38,12 @@ const btn = (href: string, label: string) =>
 
 export function confirmationEmail(b: Booking) {
   const l = lang(b);
-  const qr = `${appUrl()}/api/qr/${b.code}`;
   const pl = {
     subject: `Pole position zajęte · ${fmtDate(b.start, l, { day: "numeric", month: "long" })}, ${fmtTime(b.start)}`,
     title: "Pole position zajęte.",
     body: `Cześć ${b.name.split(" ")[0]}, Twoje stanowisko czeka.${rows(b, l)}
-<p style="margin:0 0 16px">Pokaż ten kod QR przy wejściu albo podaj kod <b style="color:#fff">${b.code}</b>. Prosimy o przybycie do salonu <b style="color:#fff">${BOOKING.arriveEarlyMin} minut przed godziną rezerwacji</b>: ustawimy fotel, pedały i powiemy, gdzie hamować.</p>
-<p style="text-align:center;margin:24px 0"><img src="${qr}" width="180" height="180" alt="QR ${b.code}" style="background:#fff;padding:10px;border-radius:12px"></p>
+<p style="text-align:center;margin:24px 0"><span style="display:inline-block;background:#fff;color:#000;padding:14px 26px;border-radius:14px;font-size:30px;font-weight:700;letter-spacing:.18em">${b.code}</span></p>
+<p style="margin:0 0 16px">Na recepcji podaj ten kod albo swoje imię i nazwisko. Prosimy o przybycie do salonu <b style="color:#fff">${BOOKING.arriveEarlyMin} minut przed godziną rezerwacji</b>: ustawimy fotel, pedały i powiemy, gdzie hamować.</p>
 <p style="margin:0 0 22px">Odwołanie bez kosztów do ${BOOKING.freeCancelHours} h przed startem. Później możesz już tylko przełożyć termin (do ${BOOKING.rescheduleHours} h przed).</p>
 ${btn(manageUrl(b.code), "Zarządzaj rezerwacją")}`,
   };
@@ -52,8 +51,8 @@ ${btn(manageUrl(b.code), "Zarządzaj rezerwacją")}`,
     subject: `Pole position secured · ${fmtDate(b.start, l, { day: "numeric", month: "long" })}, ${fmtTime(b.start)}`,
     title: "Pole position secured.",
     body: `Hi ${b.name.split(" ")[0]}, your rig is waiting.${rows(b, l)}
-<p style="margin:0 0 16px">Show this QR code at the door or give us the code <b style="color:#fff">${b.code}</b>. Please arrive at the venue <b style="color:#fff">${BOOKING.arriveEarlyMin} minutes before your booking time</b> so we can set your seat and pedals and tell you where to brake.</p>
-<p style="text-align:center;margin:24px 0"><img src="${qr}" width="180" height="180" alt="QR ${b.code}" style="background:#fff;padding:10px;border-radius:12px"></p>
+<p style="text-align:center;margin:24px 0"><span style="display:inline-block;background:#fff;color:#000;padding:14px 26px;border-radius:14px;font-size:30px;font-weight:700;letter-spacing:.18em">${b.code}</span></p>
+<p style="margin:0 0 16px">At the front desk give us this code or your full name. Please arrive at the venue <b style="color:#fff">${BOOKING.arriveEarlyMin} minutes before your booking time</b> so we can set your seat and pedals and tell you where to brake.</p>
 <p style="margin:0 0 22px">Free cancellation up to ${BOOKING.freeCancelHours} h before the start. After that you can only reschedule (up to ${BOOKING.rescheduleHours} h before).</p>
 ${btn(manageUrl(b.code), "Manage booking")}`,
   };
@@ -65,8 +64,8 @@ export function confirmationSms(b: Booking) {
   const sim = simById(b.simulatorId)?.name;
   const when = `${fmtDate(b.start, "pl", { day: "2-digit", month: "2-digit" })} ${fmtTime(b.start)}`;
   return lang(b) === "pl"
-    ? `TIRENDERS: Rezerwacja potwierdzona. ${when}, ${sim}, ${b.durationMin} min. Kod: ${b.code}. Zarzadzaj: ${manageUrl(b.code)}`
-    : `TIRENDERS: Booking confirmed. ${when}, ${sim}, ${b.durationMin} min. Code: ${b.code}. Manage: ${manageUrl(b.code)}`;
+    ? `TIRENDERS: Rezerwacja potwierdzona. ${when}, ${sim}, ${b.durationMin} min. Kod: ${b.code}. Na recepcji podaj kod albo imie i nazwisko, badz ${BOOKING.arriveEarlyMin} min wczesniej. Zarzadzaj: ${manageUrl(b.code)}`
+    : `TIRENDERS: Booking confirmed. ${when}, ${sim}, ${b.durationMin} min. Code: ${b.code}. Give the code or your name at the desk, ${BOOKING.arriveEarlyMin} min early. Manage: ${manageUrl(b.code)}`;
 }
 
 export function reminder24(b: Booking) {
@@ -89,12 +88,12 @@ export function reminder10(b: Booking) {
   const sim = simById(b.simulatorId)?.name;
   const email =
     l === "pl"
-      ? { subject: "Za 10 minut start", title: "Za 10 minut start.", body: `Stanowisko <b style="color:#fff">${sim}</b> jest gotowe. Pokaż QR albo kod <b style="color:#fff">${b.code}</b> przy wejściu.` }
-      : { subject: "Lights out in 10 minutes", title: "Lights out in 10 minutes.", body: `Rig <b style="color:#fff">${sim}</b> is ready. Show your QR or code <b style="color:#fff">${b.code}</b> at the door.` };
+      ? { subject: "Za 10 minut start", title: "Za 10 minut start.", body: `Stanowisko <b style="color:#fff">${sim}</b> jest gotowe. Na recepcji podaj kod <b style="color:#fff">${b.code}</b> albo imię i nazwisko.` }
+      : { subject: "Lights out in 10 minutes", title: "Lights out in 10 minutes.", body: `Rig <b style="color:#fff">${sim}</b> is ready. Give the code <b style="color:#fff">${b.code}</b> or your name at the desk.` };
   const sms =
     l === "pl"
-      ? `TIRENDERS: Za 10 min start! ${sim}, kod ${b.code}. Pokaz QR przy wejsciu.`
-      : `TIRENDERS: Lights out in 10 min! ${sim}, code ${b.code}. Show your QR at the door.`;
+      ? `TIRENDERS: Za 10 min start! ${sim}, kod ${b.code}. Podaj go na recepcji.`
+      : `TIRENDERS: Lights out in 10 min! ${sim}, code ${b.code}. Give it at the desk.`;
   return { email: { subject: email.subject, html: shell(email.title, email.body) }, sms };
 }
 
@@ -154,7 +153,7 @@ export function payLinkSms(list: Booking[]) {
 export function staffEmail(b: Booking) {
   return {
     subject: `Nowa rezerwacja ${b.code} · ${fmtLong(b.start, "pl")}`,
-    html: shell("Nowa rezerwacja", `${rows(b, "pl")}<p>Klient: ${b.name} · ${b.email} · ${b.phone}</p><p><a style="color:#fff" href="${appUrl()}/admin">Otwórz panel</a></p>`),
+    html: shell("Nowa rezerwacja", `${rows(b, "pl")}<p>Klient: ${b.name} · ${b.email} · ${b.phone}</p><p><a style="color:#fff" href="${appUrl()}/panel">Otwórz panel</a></p>`),
   };
 }
 
@@ -162,6 +161,12 @@ export function magicEmail(url: string, l: L) {
   return l === "pl"
     ? { subject: "Twój link do logowania", html: shell("Wsiadaj.", `Kliknij, żeby się zalogować. Link działa 20 minut i tylko raz.<p style="margin:24px 0">${btn(url, "Zaloguj się")}</p>Jeśli to nie Ty, zignoruj tę wiadomość.`) }
     : { subject: "Your sign-in link", html: shell("Jump in.", `Click to sign in. The link works for 20 minutes, once.<p style="margin:24px 0">${btn(url, "Sign in")}</p>If this wasn't you, ignore this email.`) };
+}
+
+export function passwordEmail(url: string, invite: boolean) {
+  return invite
+    ? { subject: "Dostęp do panelu 2Real Simracing", html: shell("Witaj w zespole.", `Masz dostęp do panelu salonu. Kliknij, żeby ustawić swoje hasło. Link działa 24 godziny i tylko raz.<p style="margin:24px 0">${btn(url, "Ustaw hasło")}</p>Potem logujesz się na ${appUrl()}/panel swoim e-mailem i hasłem.`) }
+    : { subject: "Ustaw hasło do panelu", html: shell("Nowe hasło.", `Kliknij, żeby ustawić hasło do panelu. Link działa 24 godziny i tylko raz.<p style="margin:24px 0">${btn(url, "Ustaw hasło")}</p>Jeśli to nie Ty, zignoruj tę wiadomość: obecne hasło dalej działa.`) };
 }
 
 export function reportEmail(title: string, summary: string) {

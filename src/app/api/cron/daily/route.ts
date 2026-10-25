@@ -1,18 +1,35 @@
 import { NextResponse } from "next/server";
 import { cronAuthorized } from "@/lib/cron";
+import { prisma } from "@/lib/db";
+import { deskMail } from "@/lib/reception";
 import { sendEmail } from "@/lib/notify";
 import { pln } from "@/lib/pricing";
 import { buildWorkbook, dayRange, monthRange, yesterdayWarsaw } from "@/lib/report";
 import { reportEmail } from "@/lib/templates";
-import { zoned } from "@/lib/time";
+import { todayWarsaw, zoned } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
 
-// Codziennie rano: raport za wczoraj. 1. dnia miesiąca dodatkowo raport za poprzedni miesiąc.
+// Codziennie rano: lista dnia dla recepcji (plan awaryjny na papier), raport za wczoraj dla właścicieli,
+// a 1. dnia miesiąca dodatkowo raport za poprzedni miesiąc.
 export async function GET(req: Request) {
   if (!cronAuthorized(req)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
+  const date = todayWarsaw();
+  const desk = (await prisma.user.findMany({ where: { role: "STAFF" }, select: { email: true } })).map((u) => u.email);
+  if (desk.length) {
+    const list = await deskMail(date);
+    for (const addr of desk)
+      await sendEmail({
+        to: addr,
+        subject: `Lista gości na dziś ${date} (${list.count})`,
+        html: reportEmail(`Dziś: ${list.count} rezerwacji`, `<p>Lista na wypadek braku internetu. Ten sam plik możesz wydrukować w panelu: Wydruk dnia.</p>${list.html}`),
+        attachments: [{ filename: `lista-gosci-${date}.xlsx`, content: list.buffer }],
+      });
+  }
+
   const to = (process.env.REPORT_EMAILS || "").split(",").map((s) => s.trim()).filter(Boolean);
-  if (!to.length) return NextResponse.json({ skipped: "REPORT_EMAILS not set" });
+  if (!to.length) return NextResponse.json({ desk: desk.length, skipped: "REPORT_EMAILS not set" });
 
   const y = yesterdayWarsaw();
   const day = await buildWorkbook(dayRange(y), `Raport dzienny ${y}`);
@@ -32,5 +49,5 @@ export async function GET(req: Request) {
       await sendEmail({ to: addr, subject: `Raport miesięczny ${label}`, html: reportEmail(`Raport ${label}`, summary(month.data)), attachments: [{ filename: `tirenders-raport-${label}.xlsx`, content: month.buffer }] });
     monthly = true;
   }
-  return NextResponse.json({ day: y, monthly });
+  return NextResponse.json({ desk: desk.length, day: y, monthly });
 }
