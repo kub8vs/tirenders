@@ -8,6 +8,9 @@ import Reveal from "@/components/Reveal";
 import SiteAnalytics from "@/components/SiteAnalytics";
 import { getDict, getLang } from "@/lib/i18n";
 import { siteUrl } from "@/lib/tokens";
+
+// Dopóki Stripe klienta nie jest podpięty, pełna strona działa na płatnościach testowych: mówimy to wprost.
+const testMode = () => process.env.VERCEL_ENV === "production" && !(process.env.STRIPE_SECRET_KEY ?? "").includes("_live_");
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin", "latin-ext"], variable: "--font-inter", display: "swap" });
@@ -41,6 +44,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <path d="M-50 700 C 240 620 300 360 540 360 S 840 580 1020 480 1200 220 1300 180" />
           </svg>
         </div>
+        {testMode() && (
+          <div role="note" className="no-print" style={{ position: "fixed", zIndex: 60, left: 0, right: 0, bottom: 0, background: "#ff2a2a", color: "#fff", textAlign: "center", fontSize: 12.5, lineHeight: 1.4, padding: "6px 16px calc(6px + env(safe-area-inset-bottom, 0px))", pointerEvents: "none" }}>
+            {lang === "en" ? "Test version: payments are test-only, no money is charged. Opening 14.11." : "Wersja testowa: płatności są testowe, nie pobieramy pieniędzy. Otwarcie 14.11."}
+          </div>
+        )}
         <Providers>
           <Header t={d} lang={lang} />
           <main>{children}</main>
