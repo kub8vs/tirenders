@@ -7,6 +7,7 @@ import SalonPlan from "./SalonPlan";
 
 type Slot = { start: string; free: string[] };
 type Prefill = { name: string; email: string; phone: string } | null;
+const splitName = (n = "") => { const [f = "", ...r] = n.trim().split(/\s+/); return { first: f, last: r.join(" ") }; };
 
 const T = {
   pl: {
@@ -21,17 +22,19 @@ const T = {
     step4: "Wybierz stanowisko",
     promoTitle: "Jedziecie ekipą? Taniej.",
     promoLead: "Zaznacz kilka stanowisk na tę samą godzinę, a rabat naliczy się sam.",
-    promoTiers: [`${GROUP_DISCOUNTS[0].min}+ stanowiska`, `${GROUP_DISCOUNTS[1].min}+ stanowisk`, "Cały salon"],
+    promoTiers: [`${GROUP_DISCOUNTS[0].min}+ stanowiska`, `${GROUP_DISCOUNTS[1].min}+ stanowisk`, "Cały salon (telefonicznie)"],
     promoNext: (n: number, p: number) => `Dobierz jeszcze ${n} ${n === 1 ? "stanowisko" : "stanowiska"}, a rabat wzrośnie do ${p}%.`,
     promoOn: (p: number) => `Rabat grupowy −${p}% naliczony.`,
-    allFree: "Zaznacz cały salon",
+    wholeSalon: "Cały salon na wyłączność rezerwujemy tylko telefonicznie. Zadzwoń na infolinię: obsługa zarezerwuje termin i wyśle Ci SMS-em link do płatności.",
+    callUs: "Zadzwoń na infolinię",
     clear: "Wyczyść",
     groupDisc: "Rabat grupowy",
     codeWeaker: "Kod działa, ale rabat grupowy jest większy, więc liczymy grupowy.",
     rigs: "Stanowiska",
     pickTime: "Najpierw wybierz godzinę: pokażemy, co jest wtedy wolne.",
     step5: "Twoje dane",
-    name: "Imię i nazwisko",
+    firstName: "Imię",
+    lastName: "Nazwisko",
     email: "E-mail",
     phone: "Telefon (SMS z przypomnieniem)",
     code: "Kod rabatowy",
@@ -45,13 +48,15 @@ const T = {
     pay: "Przejdź do płatności",
     paying: "Łączę z płatnością…",
     hold: "Po kliknięciu trzymamy ten termin 10 minut, aż zapłacisz.",
-    methods: "BLIK · karta · Apple Pay · Google Pay · Przelewy24",
+    methods: "BLIK · karta · Apple Pay · Google Pay",
     total: "Do zapłaty",
     discount: "Rabat",
     taken: "Ktoś był szybszy i zajął ten termin. Wybierz inną godzinę albo stanowisko.",
     tooMany: "Masz już kilka nieopłaconych rezerwacji. Dokończ płatność albo poczekaj 10 minut.",
+    rate: "Za dużo prób w krótkim czasie. Odczekaj minutę i spróbuj ponownie.",
     invalid: "Sprawdź dane w formularzu.",
     server: "Coś poszło nie tak po naszej stronie. Spróbuj ponownie za chwilę.",
+    busy: "Bardzo dużo osób rezerwuje w tej chwili. Kliknij jeszcze raz za kilka sekund.",
     change: "zmień",
     min: "min",
     account: "Masz konto? Zaloguj się, a rezerwacja trafi do Twojego profilu.",
@@ -69,17 +74,19 @@ const T = {
     step4: "Choose your rig",
     promoTitle: "Coming as a crew? It's cheaper.",
     promoLead: "Pick several rigs for the same time and the discount applies on its own.",
-    promoTiers: [`${GROUP_DISCOUNTS[0].min}+ rigs`, `${GROUP_DISCOUNTS[1].min}+ rigs`, "Whole venue"],
+    promoTiers: [`${GROUP_DISCOUNTS[0].min}+ rigs`, `${GROUP_DISCOUNTS[1].min}+ rigs`, "Whole venue (by phone)"],
     promoNext: (n: number, p: number) => `Add ${n} more ${n === 1 ? "rig" : "rigs"} and the discount goes up to ${p}%.`,
     promoOn: (p: number) => `Group discount −${p}% applied.`,
-    allFree: "Book the whole venue",
+    wholeSalon: "The whole venue is booked by phone only. Call our hotline: our team will book it and text you a payment link.",
+    callUs: "Call our hotline",
     clear: "Clear",
     groupDisc: "Group discount",
     codeWeaker: "The code works, but the group discount is bigger, so we use that.",
     rigs: "Rigs",
     pickTime: "Pick a time first: we'll show what's free then.",
     step5: "Your details",
-    name: "Full name",
+    firstName: "First name",
+    lastName: "Last name",
     email: "Email",
     phone: "Phone (SMS reminder)",
     code: "Discount code",
@@ -93,13 +100,15 @@ const T = {
     pay: "Continue to payment",
     paying: "Connecting to payment…",
     hold: "Once you click, we hold this slot for 10 minutes while you pay.",
-    methods: "BLIK · card · Apple Pay · Google Pay · Przelewy24",
+    methods: "BLIK · card · Apple Pay · Google Pay",
     total: "Total",
     discount: "Discount",
     taken: "Someone was faster and took this slot. Pick another time or rig.",
     tooMany: "You already have a few unpaid bookings. Finish paying or wait 10 minutes.",
+    rate: "Too many attempts in a short time. Wait a minute and try again.",
     invalid: "Check the form details.",
     server: "Something went wrong on our side. Try again in a moment.",
+    busy: "Lots of people are booking right now. Click again in a few seconds.",
     change: "change",
     min: "min",
     account: "Have an account? Sign in and the booking lands in your profile.",
@@ -127,7 +136,9 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
   const [start, setStart] = useState<string | null>(null);
   const [sims, setSims] = useState<string[]>(initialSim && simById(initialSim)?.status === "ACTIVE" ? [initialSim] : []);
   const toggleSim = (id: string) => setSims((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
-  const [form, setForm] = useState({ name: prefill?.name ?? "", email: prefill?.email ?? "", phone: prefill?.phone ?? "", code: "", terms: false });
+  // Cały salon można zaznaczyć, ale zapłacić online nie: rezerwuje go obsługa po telefonie (panel → Rezerwacja telefoniczna).
+  const wholeSalon = sims.length >= activeSims().length;
+  const [form, setForm] = useState({ first: splitName(prefill?.name).first, last: splitName(prefill?.name).last, email: prefill?.email ?? "", phone: prefill?.phone ?? "", code: "", terms: false });
   const [quote, setQuote] = useState<{ list: number; discount: number; total: number; codeValid: boolean | null; codeApplied: boolean; groupPercent: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -178,19 +189,24 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
   }, [sims.join(","), duration]);
 
   const price = (s: SimDef) => PRICES[s.priceGroup][duration as 15];
-  const ready = !!(start && sims.length && form.name.trim().length > 1 && /\S+@\S+\.\S+/.test(form.email) && form.phone.replace(/\D/g, "").length >= 9 && form.terms);
+  const ready = !!(start && sims.length && form.first.trim().length > 1 && form.last.trim().length > 1 && /\S+@\S+\.\S+/.test(form.email) && form.phone.replace(/\D/g, "").length >= 9 && form.terms);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!ready || busy) return;
+    if (!ready || busy || wholeSalon) return;
     setBusy(true);
     setError(null);
-    const res = await fetch("/api/bookings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ simulatorIds: sims, start, durationMin: duration, name: form.name, email: form.email, phone: form.phone, discountCode: quote?.codeApplied ? form.code : null, terms: true, lang }),
-    });
-    const d = await res.json().catch(() => ({}));
+    const body = JSON.stringify({ simulatorIds: sims, start, durationMin: duration, firstName: form.first, lastName: form.last, email: form.email, phone: form.phone, discountCode: quote?.codeApplied ? form.code : null, terms: true, lang });
+    // Przy tłumie (otwarcie) serwer może chwilowo odpowiedzieć „zajęty”: próbujemy jeszcze dwa razy, w losowym odstępie.
+    let res: Response | null = null;
+    let d: { error?: string; checkoutUrl?: string } = {};
+    for (let i = 0; i < 3; i++) {
+      if (i) await new Promise((r) => setTimeout(r, 800 + Math.random() * 1700));
+      res = await fetch("/api/bookings", { method: "POST", headers: { "Content-Type": "application/json" }, body }).catch(() => null);
+      d = res ? await res.json().catch(() => ({})) : { error: "busy" };
+      if (d.error !== "busy") break;
+    }
+    if (!res) res = new Response(null, { status: 503 });
     if (res.ok && d.checkoutUrl) {
       window.location.href = d.checkoutUrl;
       return;
@@ -201,7 +217,10 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
       setStart(null);
       loadSlots();
     } else if (d.error === "too_many_holds") setError(t.tooMany);
+    else if (d.error === "rate") setError(t.rate);
+    else if (d.error === "whole_salon") setError(t.wholeSalon);
     else if (d.error === "invalid") setError(t.invalid);
+    else if (d.error === "busy") setError(t.busy);
     else setError(t.server);
   };
 
@@ -209,8 +228,7 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
   const nActive = activeSims().length;
   const pct = groupPercent(sims.length);
   // następny próg rabatu: ile stanowisk brakuje i ile wtedy procent
-  const nextTier = [...GROUP_DISCOUNTS.map((t) => ({ min: t.min, percent: t.percent })), { min: nActive, percent: WHOLE_SALON_PERCENT }].find((t) => t.min > sims.length && t.percent > pct);
-  const freeNow = slot ? activeSims().filter((x) => slot.free.includes(x.id)).map((x) => x.id) : [];
+  const nextTier = GROUP_DISCOUNTS.map((t) => ({ min: t.min, percent: t.percent })).find((t) => t.min > sims.length && t.min < nActive && t.percent > pct);
 
   return (
     <form className="bk" onSubmit={submit} noValidate>
@@ -296,16 +314,11 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
             <p className="promo-state">
               {pct ? t.promoOn(pct) : ""} {nextTier && sims.length > 0 ? t.promoNext(nextTier.min - sims.length, nextTier.percent) : ""}
             </p>
-            {slot && (
+            {slot && sims.length > 1 && (
               <div className="promo-actions">
-                <button type="button" className="btn-ghost" disabled={freeNow.length < nActive || sims.length === nActive} onClick={() => setSims(freeNow)}>
-                  {t.allFree} −{WHOLE_SALON_PERCENT}%
+                <button type="button" className="btn-ghost" onClick={() => setSims([])}>
+                  {t.clear}
                 </button>
-                {sims.length > 1 && (
-                  <button type="button" className="btn-ghost" onClick={() => setSims([])}>
-                    {t.clear}
-                  </button>
-                )}
               </div>
             )}
           </div>
@@ -327,8 +340,12 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
           )}
           <div className="form-grid">
             <div className="field">
-              <label htmlFor="bk-name">{t.name}</label>
-              <input id="bk-name" className="input" autoComplete="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+              <label htmlFor="bk-first">{t.firstName}</label>
+              <input id="bk-first" className="input" autoComplete="given-name" value={form.first} onChange={(e) => setForm({ ...form, first: e.target.value })} required />
+            </div>
+            <div className="field">
+              <label htmlFor="bk-last">{t.lastName}</label>
+              <input id="bk-last" className="input" autoComplete="family-name" value={form.last} onChange={(e) => setForm({ ...form, last: e.target.value })} required />
             </div>
             <div className="field">
               <label htmlFor="bk-email">{t.email}</label>
@@ -399,9 +416,22 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
               {error}
             </p>
           )}
-          <button type="submit" className="btn-white" style={{ width: "100%", height: 58 }} disabled={!ready || busy}>
-            {busy ? t.paying : t.pay}
-          </button>
+          {wholeSalon ? (
+            <div className="whole" role="status">
+              <p>{t.wholeSalon}</p>
+              {SITE.phone ? (
+                <a className="btn-white" href={`tel:${SITE.phone.replace(/\s/g, "")}`} style={{ width: "100%", height: 58 }}>
+                  {t.callUs}: {SITE.phone}
+                </a>
+              ) : (
+                <b>{lang === "pl" ? "Numer infolinii wkrótce" : "Hotline number coming soon"}</b>
+              )}
+            </div>
+          ) : (
+            <button type="submit" className="btn-white" style={{ width: "100%", height: 58 }} disabled={!ready || busy}>
+              {busy ? t.paying : t.pay}
+            </button>
+          )}
           <p className="hint" style={{ fontSize: 12.5 }}>{t.hold}</p>
           <p className="hint" style={{ fontSize: 12.5 }}>{t.methods}</p>
           <p className="hint" style={{ fontSize: 12.5 }}>
@@ -428,6 +458,9 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
         .days { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; scrollbar-width: thin; }
         .day { flex: 0 0 auto; width: 74px; height: 92px; border-radius: 16px; border: 1px solid var(--line-2); background: #090909; display: grid; place-items: center; align-content: center; gap: 2px; cursor: pointer; }
         .day b { font-size: 26px; font-weight: 500; line-height: 1.1; }
+        .whole { display: grid; gap: 14px; padding: 18px; border-radius: 16px; border: 1px solid rgba(255,42,42,.45); background: rgba(255,42,42,.08); }
+        .whole p { margin: 0; color: #eee; line-height: 1.5; }
+        .whole .btn-white { display: inline-flex; align-items: center; justify-content: center; }
         .day small { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
         .day.on { background: #fff; color: #000; border-color: #fff; }
         .day.on small { color: #555; }

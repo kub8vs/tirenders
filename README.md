@@ -13,7 +13,7 @@ npm run db:seed
 npm run dev            # http://localhost:3100
 ```
 
-Panel obsługi: `/admin` (konto właściciela z `SEED_OWNER_EMAIL` / `SEED_OWNER_PASSWORD`).
+Panel: `/panel` (logowanie e-mailem i hasłem; konto właściciela z `SEED_OWNER_EMAIL` / `SEED_OWNER_PASSWORD`, a osoby z zespołu dodaje się w zakładce Zespół i dostają link do ustawienia hasła). Statystyki odwiedzin w panelu wymagają `VERCEL_API_TOKEN`.
 Bez kluczy Stripe/Resend/SMSAPI wszystko działa w trybie testowym: płatność przez `/platnosc/test/...`,
 wiadomości widać w panelu w zakładce „Powiadomienia”.
 
@@ -29,4 +29,4 @@ wiadomości widać w panelu w zakładce „Powiadomienia”.
 1. Postgres (np. Neon/Supabase): zmień `provider` w `prisma/schema.prisma` na `postgresql`, ustaw `DATABASE_URL`.
 2. Zmienne z `.env.example` w ustawieniach projektu.
 3. Stripe: webhook na `https://DOMENA/api/stripe/webhook` (zdarzenia `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.expired`); włącz BLIK i Przelewy24 w panelu Stripe.
-4. `vercel.json` uruchamia raport dzienny (`/api/cron/daily`). Przypomnienia i wygaszanie płatności (`/api/cron/tick`) muszą działać co minutę: na planie Hobby ustaw darmowy ping, np. cron-job.org, na `https://DOMENA/api/cron/tick` z nagłówkiem `Authorization: Bearer CRON_SECRET`.
+4. `vercel.json` uruchamia raport dzienny (`/api/cron/daily`) oraz co minutę w godzinach 5:00–22:59 UTC przypomnienia i wygaszanie płatności (`/api/cron/tick`; nocą baza może zasnąć i nie nalicza kosztów). Wymaga zmiennej `CRON_SECRET` i planu Pro.

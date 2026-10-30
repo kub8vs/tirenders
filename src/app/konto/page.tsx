@@ -89,7 +89,7 @@ export default async function Page() {
             <ProfileForm lang={l} name={u.name ?? ""} phone={u.phone ?? ""} />
           </div>
           {staff && (
-            <Link href="/admin" className="btn-ghost" style={{ height: 50 }}>
+            <Link href="/panel" className="btn-ghost" style={{ height: 50 }}>
               {tr(l, { pl: "Panel obsługi", en: "Staff panel" })} →
             </Link>
           )}

@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { BOOKING, HOURS, SIMULATORS } from "@/config/site";
 import { prisma } from "./db";
+import { serviceBlocks, services } from "./sims";
 import { addDays, dowOf, MIN, todayWarsaw, warsaw, zoned } from "./time";
 
 type Tx = Prisma.TransactionClient | typeof prisma;
@@ -47,6 +48,7 @@ export async function dayAvailability(dateStr: string, duration: number, now = n
   if (!win || !isDateBookable(dateStr)) return result;
 
   const active = SIMULATORS.filter((s) => s.status === "ACTIVE").map((s) => s.id);
+  const service = await services(now);
   const pad = BOOKING.bufferMin * MIN;
   const existing = await prisma.booking.findMany({
     where: {
@@ -61,7 +63,7 @@ export async function dayAvailability(dateStr: string, duration: number, now = n
     const s = t;
     const e = t + duration * MIN;
     const free = active.filter(
-      (sim) => !existing.some((b) => b.simulatorId === sim && b.start.getTime() < e + pad && b.end.getTime() + pad > s),
+      (sim) => !serviceBlocks(service, sim, new Date(s)) && !existing.some((b) => b.simulatorId === sim && b.start.getTime() < e + pad && b.end.getTime() + pad > s),
     );
     if (free.length) result.slots.push({ start: new Date(s).toISOString(), free });
   }

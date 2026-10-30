@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import { allow, clientIp } from "@/lib/ratelimit";
 
 const Body = z.object({
   email: z.string().email().max(160),
@@ -11,11 +12,13 @@ const Body = z.object({
 });
 
 export async function POST(req: Request) {
+  if (!(await allow(`register:ip:${clientIp(req)}`, 10, 600))) return NextResponse.json({ error: "rate" }, { status: 429 });
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "invalid" }, { status: 400 });
   const email = parsed.data.email.trim().toLowerCase();
   const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing?.passwordHash) return NextResponse.json({ error: "exists" }, { status: 409 });
+  // Konta zespołu (recepcja, właściciel) ustawiają hasło tylko linkiem z maila, nigdy przez rejestrację.
+  if (existing?.passwordHash || (existing && existing.role !== "CUSTOMER")) return NextResponse.json({ error: "exists" }, { status: 409 });
   const passwordHash = await bcrypt.hash(parsed.data.password, 10);
   await prisma.user.upsert({
     where: { email },

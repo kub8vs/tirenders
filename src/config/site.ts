@@ -5,7 +5,7 @@ export const SITE = {
   brand: "Tirenders",
   salon: "2Real Simracing",
   city: "Warszawa",
-  openingDate: "2026-11-15", // TODO: potwierdzić dokładny dzień otwarcia
+  openingDate: "2026-11-14", // TODO: potwierdzić godzinę otwarcia
   address: null as string | null, // TODO: adres salonu („nie wiadomo jeszcze”)
   phone: null as string | null, // TODO: numer do rezerwacji > 90 min i wyłączności salonu
   email: "rezerwacje@tirenders.pl", // TODO: adres po zakupie domeny
@@ -37,6 +37,7 @@ export const BOOKING = {
   minLeadMin: 60, // najpóźniej godzinę przed
   maxDaysAhead: 14, // maks. 2 tygodnie do przodu
   holdMin: 10, // tyle czasu slot czeka na płatność
+  payLinkHours: 24, // rezerwacja przez telefon: tyle czasu klient ma na zapłatę linkiem z SMS-a (Stripe pozwala maks. 24 h)
   freeCancelHours: 12, // > 12 h przed: odwołanie i zwrot 100%
   rescheduleHours: 2, // 12–2 h przed: tylko zmiana terminu; < 2 h: nic
   arriveEarlyMin: 15, // prosimy być w salonie 15 min przed startem

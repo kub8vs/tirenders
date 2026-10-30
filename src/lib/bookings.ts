@@ -1,18 +1,48 @@
-import type { Booking } from "@prisma/client";
+import { Prisma, type Booking } from "@prisma/client";
+import type Stripe from "stripe";
 import { BOOKING, SITE, simById } from "@/config/site";
 import { isFree, validStart } from "./availability";
 import { prisma } from "./db";
 import { sendEmail, sendSms } from "./notify";
-import { createCheckout, expireCheckout, refund } from "./payments";
+import { createCheckout, expireCheckout, refund, stripe } from "./payments";
 import { quote } from "./pricing";
+import { serviceBlocks, services } from "./sims";
 import { cancelledEmail, confirmationEmail, confirmationSms, rescheduledEmail, staffEmail } from "./templates";
 import { MIN } from "./time";
 import { bookingCode } from "./tokens";
 
 export class BookingError extends Error {
-  constructor(public code: "slot_taken" | "invalid" | "closed" | "not_allowed") {
+  constructor(public code: "slot_taken" | "invalid" | "closed" | "not_allowed" | "too_soon") {
     super(code);
   }
+}
+
+/** Baza odrzuciła zapis, bo termin nachodzi na inną aktywną rezerwację (constraint booking_no_overlap). */
+export function isOverlapError(e: unknown) {
+  const msg = e instanceof Error ? e.message : String(e);
+  // 40P01: dwie osoby naraz na ten sam termin, baza przepuszcza jedną, druga dostaje „zajęte”.
+  return msg.includes("booking_no_overlap") || msg.includes("23P01") || msg.includes("40P01");
+}
+
+/** Chwilowy tłok w połączeniach z bazą (np. tysiące kliknięć na otwarciu). Klient próbuje ponownie. */
+export function isBusyError(e: unknown) {
+  const msg = e instanceof Error ? e.message : String(e);
+  return (e as { code?: string })?.code === "P2024" || msg.includes("connection pool") || msg.includes("too many connections");
+}
+
+/** Holdy, którym minęło 10 min, zwalniają termin od razu, zanim ktoś spróbuje go kupić (cron robi to też co minutę). */
+async function releaseStaleHolds(tx: Prisma.TransactionClient | typeof prisma, simulatorIds: string[], start: Date, end: Date, now = new Date()) {
+  const pad = BOOKING.bufferMin * MIN;
+  await tx.booking.updateMany({
+    where: {
+      simulatorId: { in: simulatorIds },
+      status: "PENDING",
+      holdExpiresAt: { lte: now },
+      start: { lt: new Date(end.getTime() + pad) },
+      end: { gt: new Date(start.getTime() - pad) },
+    },
+    data: { status: "EXPIRED" },
+  });
 }
 
 export type NewBooking = {
@@ -20,7 +50,8 @@ export type NewBooking = {
   simulatorIds?: string[]; // kilka stanowisk na ten sam termin = rezerwacja grupowa z rabatem
   start: Date;
   durationMin: number;
-  name: string;
+  firstName: string;
+  lastName: string;
   email: string;
   phone: string;
   discountCode?: string | null;
@@ -29,7 +60,13 @@ export type NewBooking = {
   source?: "ONLINE" | "ADMIN";
   note?: string;
   markPaid?: boolean; // tylko panel obsługi
+  payLink?: boolean; // tylko panel obsługi: klient płaci linkiem z SMS-a, termin czeka do BOOKING.payLinkHours
 };
+
+/** Do kiedy rezerwacja telefoniczna czeka na zapłatę: payLinkHours, ale najpóźniej 15 min przed startem. */
+function payLinkDeadline(start: Date) {
+  return new Date(Math.min(Date.now() + BOOKING.payLinkHours * 60 * MIN, start.getTime() - 15 * MIN));
+}
 
 export async function createBooking(input: NewBooking) {
   const ids = [...new Set(input.simulatorIds?.length ? input.simulatorIds : input.simulatorId ? [input.simulatorId] : [])];
@@ -39,45 +76,60 @@ export async function createBooking(input: NewBooking) {
   if (!validStart(input.start, input.durationMin, new Date(), admin)) throw new BookingError("closed");
   const end = new Date(input.start.getTime() + input.durationMin * MIN);
   const q = await quote(ids, input.durationMin, input.discountCode);
+  const holdUntil = input.payLink ? payLinkDeadline(input.start) : new Date(Date.now() + BOOKING.holdMin * MIN);
+  // Klient musi mieć choć 15 min na zapłatę linkiem.
+  if (input.payLink && holdUntil.getTime() < Date.now() + 15 * MIN) throw new BookingError("too_soon");
 
-  const bookings = await prisma.$transaction(async (tx) => {
-    for (const id of ids) if (!(await isFree(tx, id, input.start, end))) throw new BookingError("slot_taken");
-    const out: Booking[] = [];
-    let groupId: string | null = null;
-    for (const item of q.items) {
-      let code = bookingCode();
-      while (await tx.booking.findUnique({ where: { code } })) code = bookingCode();
-      if (ids.length > 1) groupId ??= code;
-      out.push(
-        await tx.booking.create({
-          data: {
-            code,
-            groupId,
-            simulatorId: item.simulatorId,
-            userId: input.userId ?? null,
-            name: input.name.trim(),
-            email: input.email.trim().toLowerCase(),
-            phone: input.phone.trim(),
-            start: input.start,
-            end,
-            durationMin: input.durationMin,
-            listPriceGross: item.list,
-            discountAmount: item.discount,
-            discountCode: q.codeApplied ? q.code : null,
-            priceGross: item.total,
-            status: input.markPaid ? "PAID" : "PENDING",
-            paidAt: input.markPaid ? new Date() : null,
-            paymentProvider: input.markPaid ? "onsite" : null,
-            paymentMethod: input.markPaid ? "ONSITE" : null,
-            holdExpiresAt: input.markPaid ? null : new Date(Date.now() + BOOKING.holdMin * MIN),
-            source: input.source ?? "ONLINE",
-            note: input.note ?? (q.groupPercent ? `Rabat grupowy ${q.groupPercent}% (${ids.length} stanowisk)` : undefined),
-            locale: input.locale === "en" ? "en" : "pl",
-          },
-        }),
-      );
-    }
-    return out;
+  // Bez długiej transakcji: przy tysiącach kliknięć każda rezerwacja to kilka krótkich zapytań,
+  // a o tym, kto dostał termin, decyduje ograniczenie booking_no_overlap w bazie.
+  await releaseStaleHolds(prisma, ids, input.start, end);
+  const service = await services();
+  for (const id of ids) if (serviceBlocks(service, id, input.start) || !(await isFree(prisma, id, input.start, end))) throw new BookingError("slot_taken");
+  const firstName = input.firstName.trim();
+  const lastName = input.lastName.trim();
+  const email = input.email.trim().toLowerCase();
+  const phone = input.phone.trim();
+  const locale = input.locale === "en" ? "en" : "pl";
+  // Karta gościa: zawsze najświeższe dane z ostatniej rezerwacji (notatka recepcji zostaje).
+  const customer = await prisma.customer.upsert({
+    where: { email },
+    update: { firstName, lastName, phone, locale },
+    create: { email, firstName, lastName, phone, locale },
+  });
+  const codes = q.items.map(() => bookingCode());
+  const groupId = ids.length > 1 ? codes[0] : null;
+  const rows: Prisma.BookingCreateInput[] = q.items.map((item, i) => ({
+    code: codes[i],
+    groupId,
+    simulator: { connect: { id: item.simulatorId } },
+    ...(input.userId ? { user: { connect: { id: input.userId } } } : {}),
+    customer: { connect: { id: customer.id } },
+    name: `${firstName} ${lastName}`,
+    firstName,
+    lastName,
+    email,
+    phone,
+    start: input.start,
+    end,
+    durationMin: input.durationMin,
+    listPriceGross: item.list,
+    discountAmount: item.discount,
+    discountCode: q.codeApplied ? q.code : null,
+    priceGross: item.total,
+    status: input.markPaid ? "PAID" : "PENDING",
+    paidAt: input.markPaid ? new Date() : null,
+    paymentProvider: input.markPaid ? "onsite" : null,
+    paymentMethod: input.markPaid ? "ONSITE" : null,
+    holdExpiresAt: input.markPaid ? null : holdUntil,
+    source: input.source ?? "ONLINE",
+    note: input.note ?? (q.groupPercent ? `Rabat grupowy ${q.groupPercent}% (${ids.length} stanowisk)` : undefined),
+    locale,
+  }));
+  // Cała grupa zapisuje się w jednej transakcji albo wcale.
+  const bookings: Booking[] = await prisma.$transaction(rows.map((data) => prisma.booking.create({ data }))).catch((e) => {
+    // Ktoś inny kupił ten termin w tej samej chwili: baza przepuściła tylko jedną rezerwację.
+    if (isOverlapError(e)) throw new BookingError("slot_taken");
+    throw e;
   });
 
   const booking = bookings[0];
@@ -85,8 +137,9 @@ export async function createBooking(input: NewBooking) {
     for (const b of bookings) await afterPaid(b);
     return { booking, bookings, checkoutUrl: null };
   }
-  const checkoutUrl = await createCheckout(bookings);
-  return { booking, bookings, checkoutUrl };
+  const checkout = await createCheckout(bookings, holdUntil);
+  if (checkout.ref) await prisma.booking.updateMany({ where: { id: { in: bookings.map((b) => b.id) } }, data: { paymentRef: checkout.ref } });
+  return { booking, bookings, checkoutUrl: checkout.url };
 }
 
 /** Czy ta rezerwacja dostaje SMS-y (w grupie tylko pierwsza, żeby nie wysyłać kilku na ten sam numer). */
@@ -105,21 +158,45 @@ export async function markPaid(bookingId: string, ref: { provider: string; ref?:
   return out;
 }
 
+/** Zapasowe potwierdzenie płatności po powrocie ze Stripe (gdy webhook się spóźnia albo nie dociera). */
+export async function syncStripePayment(b: Booking) {
+  const s = stripe();
+  if (!s || !b.paymentRef || !["PENDING", "EXPIRED"].includes(b.status)) return b;
+  const session = await s.checkout.sessions.retrieve(b.paymentRef, { expand: ["payment_intent.payment_method"] }).catch(() => null);
+  if (!session || session.payment_status !== "paid") return b;
+  const pi = session.payment_intent as Stripe.PaymentIntent | null;
+  const method = (pi?.payment_method as Stripe.PaymentMethod | null)?.type;
+  return (await markPaid(b.id, { provider: "stripe", ref: session.id, method })) ?? b;
+}
+
 async function markOnePaid(bookingId: string, ref: { provider: string; ref?: string; method?: string }) {
   const b = await prisma.booking.findUnique({ where: { id: bookingId } });
-  if (!b || b.status === "PAID" || b.status === "COMPLETED") return b;
-  if (b.status !== "PENDING" && b.status !== "EXPIRED") return b;
+  if (!b || (b.status !== "PENDING" && b.status !== "EXPIRED")) return b;
 
-  const stillFree = await isFree(prisma, b.simulatorId, b.start, b.end, b.id);
   const paidData = { paymentProvider: ref.provider, paymentRef: ref.ref ?? b.paymentRef, paymentMethod: ref.method ?? null, paidAt: new Date() };
-  if (!stillFree) {
-    const updated = await prisma.booking.update({ where: { id: b.id }, data: { ...paidData, status: "REFUNDED", refundAmount: b.priceGross, cancelledAt: new Date() } });
-    await refund(updated, updated.priceGross);
-    const m = cancelledEmail(updated, updated.priceGross, "conflict");
-    await sendEmail({ to: updated.email, ...m, bookingId: updated.id });
+  // Zmiana statusu tylko z PENDING/EXPIRED: gdy Stripe wyśle to samo powiadomienie dwa razy naraz,
+  // tylko jedno przejdzie, więc klient dostanie jeden mail i jeden SMS.
+  const claimable = { id: b.id, status: { in: ["PENDING", "EXPIRED"] } };
+  let claimed: number;
+  try {
+    ({ count: claimed } = await prisma.booking.updateMany({ where: claimable, data: { ...paidData, status: "PAID", holdExpiresAt: null } }));
+  } catch (e) {
+    if (!isOverlapError(e)) throw e;
+    // Zapłacił po wygaśnięciu blokady, a termin w międzyczasie kupił ktoś inny: pełny zwrot.
+    const { count } = await prisma.booking.updateMany({
+      where: claimable,
+      data: { ...paidData, status: "REFUNDED", refundAmount: b.priceGross, cancelledAt: new Date() },
+    });
+    const updated = await prisma.booking.findUniqueOrThrow({ where: { id: b.id } });
+    if (count === 1) {
+      await refund(updated, updated.priceGross);
+      const m = cancelledEmail(updated, updated.priceGross, "conflict");
+      await sendEmail({ to: updated.email, ...m, bookingId: updated.id });
+    }
     return updated;
   }
-  const updated = await prisma.booking.update({ where: { id: b.id }, data: { ...paidData, status: "PAID", holdExpiresAt: null } });
+  const updated = await prisma.booking.findUniqueOrThrow({ where: { id: b.id } });
+  if (claimed !== 1) return updated;
   if (updated.discountCode) await prisma.discountCode.update({ where: { code: updated.discountCode }, data: { uses: { increment: 1 } } }).catch(() => null);
   await afterPaid(updated);
   return updated;
@@ -179,8 +256,10 @@ export async function rescheduleBooking(id: string, newStart: Date, newSimId: st
   if (!sim || sim.status !== "ACTIVE") throw new BookingError("invalid");
   // Zmiana na droższe stanowisko wymagałaby dopłaty – klient może wybrać tylko tę samą grupę cenową.
   if (by === "customer" && sim.priceGroup !== simById(b.simulatorId)?.priceGroup) throw new BookingError("not_allowed");
+  if (serviceBlocks(await services(), simulatorId, newStart)) throw new BookingError("slot_taken");
   const end = new Date(newStart.getTime() + b.durationMin * MIN);
   const updated = await prisma.$transaction(async (tx) => {
+    await releaseStaleHolds(tx, [simulatorId], newStart, end);
     if (!(await isFree(tx, simulatorId, newStart, end, b.id))) throw new BookingError("slot_taken");
     return tx.booking.update({
       where: { id },
@@ -192,6 +271,9 @@ export async function rescheduleBooking(id: string, newStart: Date, newSimId: st
         remind10At: null,
       },
     });
+  }).catch((e) => {
+    if (isOverlapError(e)) throw new BookingError("slot_taken");
+    throw e;
   });
   const m = rescheduledEmail(updated);
   await sendEmail({ to: updated.email, ...m, bookingId: updated.id });

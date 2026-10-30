@@ -5,6 +5,7 @@ import AppleProvider from "next-auth/providers/apple";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import { prisma } from "./db";
+import { allow } from "./ratelimit";
 
 export type Role = "CUSTOMER" | "STAFF" | "ACCOUNTING" | "OWNER";
 
@@ -20,6 +21,8 @@ const providers: NextAuthOptions["providers"] = [
     async authorize(c) {
       const email = c?.email?.trim().toLowerCase();
       if (!email || !c?.password) return null;
+      // Max 5 prób logowania na adres w 15 minut (chroni panel przed zgadywaniem hasła).
+      if (!(await allow(`login:${email}`, 5, 900))) throw new Error("rate");
       const user = await prisma.user.findUnique({ where: { email } });
       if (!user?.passwordHash || !(await bcrypt.compare(c.password, user.passwordHash))) return null;
       await linkGuestBookings(user.id, email);
@@ -33,7 +36,7 @@ const providers: NextAuthOptions["providers"] = [
     async authorize(c) {
       if (!c?.token) return null;
       const t = await prisma.magicToken.findUnique({ where: { token: c.token } });
-      if (!t || t.usedAt || t.expiresAt < new Date()) return null;
+      if (!t || t.purpose !== "login" || t.usedAt || t.expiresAt < new Date()) return null;
       await prisma.magicToken.update({ where: { token: t.token }, data: { usedAt: new Date() } });
       const user = await prisma.user.upsert({ where: { email: t.email }, update: {}, create: { email: t.email } });
       await linkGuestBookings(user.id, user.email);
@@ -68,7 +71,11 @@ export const authOptions: NextAuthOptions = {
     },
     async jwt({ token, user }) {
       if (user?.email) {
-        const u = await prisma.user.findUnique({ where: { email: user.email.toLowerCase() } });
+        let u = await prisma.user.findUnique({ where: { email: user.email.toLowerCase() } });
+        // Adresy z OWNER_EMAILS (zmienna w Vercel, po przecinku) dostają rolę właściciela przy logowaniu,
+        // żeby nowa baza nie wymagała ręcznego zakładania konta admina.
+        const owners = (process.env.OWNER_EMAILS ?? "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
+        if (u && u.role !== "OWNER" && owners.includes(u.email)) u = await prisma.user.update({ where: { id: u.id }, data: { role: "OWNER" } });
         if (u) {
           token.uid = u.id;
           token.role = u.role;
@@ -93,18 +100,42 @@ export async function currentUser() {
   return prisma.user.findUnique({ where: { id } });
 }
 
-export const ADMIN_ACCESS: Record<string, Role[]> = {
+export const PANEL_ROLES = ["OWNER", "STAFF", "ACCOUNTING"] as const;
+export const ROLE_LABEL: Record<string, string> = { OWNER: "Właściciel", STAFF: "Recepcja", ACCOUNTING: "Księgowość", CUSTOMER: "Gość" };
+
+// Kto widzi którą część panelu. Recepcja nie widzi pieniędzy, księgowość tylko raporty.
+export const ADMIN_ACCESS = {
+  dashboard: ["OWNER"],
+  reception: ["OWNER", "STAFF"],
   calendar: ["OWNER", "STAFF"],
   checkin: ["OWNER", "STAFF"],
   sales: ["OWNER", "STAFF"],
+  refunds: ["OWNER"],
+  sims: ["OWNER"],
+  service: ["OWNER", "STAFF"], // wyłączenie stanowiska na serwis (recepcja też, bo jest na miejscu)
+  site: ["OWNER"],
+  customers: ["OWNER"],
+  finance: ["OWNER"],
   reports: ["OWNER", "ACCOUNTING"],
   codes: ["OWNER"],
   users: ["OWNER"],
   logs: ["OWNER"],
-};
+  tech: ["OWNER"],
+} satisfies Record<string, Role[]>;
+export type Area = keyof typeof ADMIN_ACCESS;
 
-export async function staffUser(area: keyof typeof ADMIN_ACCESS) {
+/** Konta z OWNER_EMAILS (twórca strony) widzą dodatkowo zakładkę Technika. */
+export const isSuperOwner = (email: string) =>
+  (process.env.OWNER_EMAILS ?? "").split(",").map((e) => e.trim().toLowerCase()).includes(email.toLowerCase());
+
+export const canSee = (u: { role: string; email: string }, area: Area) =>
+  (ADMIN_ACCESS[area] as readonly string[]).includes(u.role) && (area !== "tech" || isSuperOwner(u.email));
+
+export async function staffUser(area: Area) {
   const u = await currentUser();
-  if (!u || !ADMIN_ACCESS[area].includes(u.role as Role)) return null;
+  if (!u || !canSee(u, area)) return null;
   return u;
 }
+
+/** Strona startowa panelu dla danej roli. */
+export const panelHome = (role: string) => (role === "OWNER" ? "/panel" : role === "STAFF" ? "/panel/recepcja" : "/panel/raporty");

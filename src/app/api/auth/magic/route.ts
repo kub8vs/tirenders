@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import { allow, clientIp } from "@/lib/ratelimit";
 import { sendEmail } from "@/lib/notify";
 import { appUrl, magicEmail } from "@/lib/templates";
 import { randomToken } from "@/lib/tokens";
@@ -8,6 +9,7 @@ import { randomToken } from "@/lib/tokens";
 const Body = z.object({ email: z.string().email().max(160), lang: z.enum(["pl", "en"]).default("pl"), next: z.string().max(200).optional() });
 
 export async function POST(req: Request) {
+  if (!(await allow(`magic:ip:${clientIp(req)}`, 10, 600))) return NextResponse.json({ error: "rate" }, { status: 429 });
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "invalid" }, { status: 400 });
   const email = parsed.data.email.trim().toLowerCase();

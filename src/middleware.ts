@@ -1,12 +1,19 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-// Strona „Wkrótce” przed otwarciem: gdy COMING_SOON=1, obcy widzą tylko zapowiedź.
-// Właściciel wchodzi raz przez ?podglad=PREVIEW_KEY i dostaje ciasteczko na 60 dni.
+// Strona „Wkrótce” przed otwarciem: gdy COMING_SOON=1, na tirenders.pl obcy widzą tylko licznik.
+// Pełna strona do pokazywania działa w tym czasie pod 2realsimracing.vercel.app (bez indeksowania w Google).
+// Właściciel może też wejść na tirenders.pl raz przez ?podglad=PREVIEW_KEY i dostaje ciasteczko na 60 dni.
 const COOKIE = "podglad";
+const GATED = (host: string) => host === "tirenders.pl" || host.endsWith(".tirenders.pl");
 
 export function middleware(req: NextRequest) {
   const key = process.env.PREVIEW_KEY;
   if (process.env.COMING_SOON !== "1" || !key) return NextResponse.next();
+  if (!GATED(req.nextUrl.hostname)) {
+    const res = NextResponse.next();
+    res.headers.set("X-Robots-Tag", "noindex, nofollow");
+    return res;
+  }
 
   const url = req.nextUrl;
   if (url.searchParams.get(COOKIE) === key) {

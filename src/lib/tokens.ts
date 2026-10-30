@@ -13,9 +13,22 @@ export function verify(value: string, sig: string | null | undefined) {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
+/** Adres strony do linków w mailach i SMS-ach. Kopia testowa linkuje do siebie, nie do produkcji. */
+export function siteUrl() {
+  const e = process.env;
+  const host = e.VERCEL_ENV === "preview" && e.VERCEL_BRANCH_URL ? `https://${e.VERCEL_BRANCH_URL}` : e.APP_URL || (e.VERCEL_PROJECT_PRODUCTION_URL ? `https://${e.VERCEL_PROJECT_PRODUCTION_URL}` : "http://localhost:3100");
+  return host.replace(/\/$/, "");
+}
+
 export function manageUrl(code: string) {
-  const base = (process.env.APP_URL || "http://localhost:3100").replace(/\/$/, "");
+  const base = siteUrl();
   return `${base}/rezerwacja/zarzadzaj?c=${code}&s=${sign("manage:" + code)}`;
+}
+
+/** Krótki link do zapłaty wysyłany SMS-em przy rezerwacji telefonicznej. */
+export function payUrl(code: string) {
+  const base = siteUrl();
+  return `${base}/zaplac/${code}?s=${sign("pay:" + code)}`;
 }
 
 const ALPHA = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";

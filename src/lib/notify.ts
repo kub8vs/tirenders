@@ -1,13 +1,13 @@
 import { prisma } from "./db";
 
 // E-mail: Resend (RESEND_API_KEY, MAIL_FROM). SMS: SMSAPI.pl (SMSAPI_TOKEN, SMS_FROM).
-// Bez kluczy wiadomości trafiają tylko do logu (status DEV) – widać je w panelu /admin/powiadomienia.
+// Bez kluczy wiadomości trafiają tylko do logu (status DEV) – widać je w panelu /panel/powiadomienia.
 
 export type Attachment = { filename: string; content: Buffer };
 
 export async function sendEmail(opts: { to: string; subject: string; html: string; text?: string; attachments?: Attachment[]; bookingId?: string }) {
   const key = process.env.RESEND_API_KEY;
-  const from = process.env.MAIL_FROM || "Tirenders <rezerwacje@tirenders.pl>";
+  const from = process.env.MAIL_FROM || "2Real Simracing <rezerwacje@tirenders.pl>";
   let status = "DEV";
   let error: string | undefined;
   if (key) {
