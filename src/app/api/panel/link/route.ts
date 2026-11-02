@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { PANEL_ROLES } from "@/lib/auth";
+import { PANEL_ROLES, isSuperOwner } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { sendPasswordLink } from "@/lib/panelAuth";
 import { allow, clientIp } from "@/lib/ratelimit";
@@ -14,7 +14,9 @@ export async function POST(req: Request) {
   if (!p.success) return NextResponse.json({ error: "invalid" }, { status: 400 });
   const email = p.data.email.trim().toLowerCase();
   if (!(await allow(`pwlink:${email}`, 3, 900))) return NextResponse.json({ error: "rate" }, { status: 429 });
-  const u = await prisma.user.findUnique({ where: { email } });
+  let u = await prisma.user.findUnique({ where: { email } });
+  // Adres z OWNER_EMAILS na świeżej bazie: konto właściciela powstaje przy pierwszym „ustaw hasło”.
+  if (isSuperOwner(email)) u = await prisma.user.upsert({ where: { email }, update: { role: "OWNER" }, create: { email, role: "OWNER" } });
   let dev: string | undefined;
   if (u && (PANEL_ROLES as readonly string[]).includes(u.role)) {
     const url = await sendPasswordLink(email, false);
