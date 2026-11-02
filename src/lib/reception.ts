@@ -23,6 +23,9 @@ export type DeskRow = {
   checkedInBy: string | null;
   source: string;
   note: string | null;
+  paid: number; // grosze zapłacone online (po zwrotach)
+  adjust: number; // korekta na miejscu w groszach (+ dopłata, − upust)
+  adjustNote: string | null;
 };
 
 export function deskRow(b: Booking): DeskRow {
@@ -45,6 +48,9 @@ export function deskRow(b: Booking): DeskRow {
     checkedInBy: b.checkedInBy,
     source: b.source,
     note: b.note,
+    paid: b.paidAt ? b.priceGross - b.refundAmount : 0,
+    adjust: b.priceAdjust,
+    adjustNote: b.priceAdjustNote,
   };
 }
 

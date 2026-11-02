@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { markPaid } from "@/lib/bookings";
 import { testPayAllowed } from "@/lib/payments";
 
-// Lokalna bramka testowa. Wyłączona, gdy skonfigurowano Stripe albo na produkcji.
+// Lokalna bramka testowa. Wyłączona, gdy są klucze Tpay (na produkcji tylko z TEST_PAY=1).
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   if (!testPayAllowed()) return NextResponse.json({ error: "disabled" }, { status: 404 });
   const { method } = (await req.json().catch(() => ({}))) as { method?: string };

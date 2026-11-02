@@ -244,10 +244,10 @@ export default function Hero({ t }: { t: Dict["hero"] }) {
         )}
 
         <a href="#start" className="scroll-cue" aria-label={t.scroll}>
-          <span className="mouse" aria-hidden="true">
+          <span>{t.scroll}</span>
+          <span className="scroll-line" aria-hidden="true">
             <i />
           </span>
-          <span>{t.scroll}</span>
         </a>
       </div>
     </section>

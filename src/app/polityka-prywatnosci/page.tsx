@@ -15,7 +15,7 @@ export default function Page() {
         <li>Prośba o opinię po wizycie – prawnie uzasadniony interes (art. 6 ust. 1 lit. f RODO). Możesz się wypisać w każdej chwili.</li>
       </ul>
       <h2>Komu przekazujemy dane</h2>
-      <p>Dostawcom, bez których usługa nie działa: operator płatności [Stripe], wysyłka e-maili [Resend], wysyłka SMS [SMSAPI.pl / LINK Mobility], hosting [Vercel, baza danych]. Część z nich może przetwarzać dane poza EOG na podstawie standardowych klauzul umownych.</p>
+      <p>Dostawcom, bez których usługa nie działa: operator płatności [Tpay, Krajowy Integrator Płatności S.A.], wysyłka e-maili [Resend], wysyłka SMS [SMSAPI.pl / LINK Mobility], hosting [Vercel, baza danych]. Część z nich może przetwarzać dane poza EOG na podstawie standardowych klauzul umownych.</p>
       <h2>Jak długo</h2>
       <p>Dane konta – do jego usunięcia. Dane rozliczeniowe – 5 lat od końca roku podatkowego.</p>
       <h2>Twoje prawa</h2>

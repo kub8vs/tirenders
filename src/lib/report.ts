@@ -37,7 +37,8 @@ export async function reportData(r: Range) {
   const sales = await prisma.sale.findMany({ where: { createdAt: { gte: start, lt: end } }, orderBy: { createdAt: "asc" } });
   const paid = bookings.filter((b) => ["PAID", "COMPLETED", "NO_SHOW", "REFUNDED", "CANCELLED"].includes(b.status) && b.paidAt);
 
-  const revenueGross = paid.reduce((s, b) => s + b.priceGross - b.refundAmount, 0);
+  // Korekty z recepcji (dopłaty i upusty na miejscu) liczą się do przychodu.
+  const revenueGross = paid.reduce((s, b) => s + b.priceGross - b.refundAmount + (["CANCELLED", "REFUNDED"].includes(b.status) ? 0 : b.priceAdjust), 0);
   const salesGross = sales.reduce((s, x) => s + x.amount, 0);
   const totalGross = revenueGross + salesGross;
   const { net, vat } = netOf(totalGross, SITE.vatRate);
@@ -142,6 +143,8 @@ export async function buildWorkbook(r: Range, title: string) {
     { header: "VAT", key: "vat", width: 10 },
     { header: "Metoda", key: "method", width: 12 },
     { header: "Zwrot", key: "refund", width: 10 },
+    { header: "Korekta na miejscu", key: "adjust", width: 16 },
+    { header: "Powód korekty", key: "adjustNote", width: 24 },
     { header: "Check-in", key: "checkin", width: 9 },
     { header: "Źródło", key: "source", width: 9 },
     { header: "Kod rezerwacji", key: "bcode", width: 14 },
@@ -167,13 +170,15 @@ export async function buildWorkbook(r: Range, title: string) {
       vat: zl(t.vat),
       method: PAY_LABEL[b.paymentMethod ?? ""] ?? b.paymentMethod ?? "",
       refund: zl(b.refundAmount),
+      adjust: zl(b.priceAdjust),
+      adjustNote: b.priceAdjustNote ?? "",
       checkin: b.checkedInAt ? fmtTime(b.checkedInAt) : "",
       source: b.source === "ADMIN" ? "Obsługa" : "Online",
       bcode: b.code,
     });
   }
-  ["I", "J", "L", "M", "N", "P"].forEach((c) => (res.getColumn(c).numFmt = money));
-  res.autoFilter = { from: "A1", to: "S1" };
+  ["I", "J", "L", "M", "N", "P", "Q"].forEach((c) => (res.getColumn(c).numFmt = money));
+  res.autoFilter = { from: "A1", to: "U1" };
 
   // Metody płatności
   const pm = wb.addWorksheet("Metody płatności");

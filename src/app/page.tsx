@@ -56,7 +56,7 @@ export default function Home() {
         </div>
       </section>
 
-      <Marquee items={tr(l, { pl: ["Lights out", "6DOF", "Prawdziwe karoserie", "Warszawa", "Ty prowadzisz", "Od 15.11"], en: ["Lights out", "6DOF", "Real car bodies", "Warsaw", "You drive", "From 15 Nov"] })} tone="red" />
+      <Marquee items={tr(l, { pl: ["Lights out", "6DOF", "Prawdziwe karoserie", "Warszawa", "Ty prowadzisz", "Od 21.11"], en: ["Lights out", "6DOF", "Real car bodies", "Warsaw", "You drive", "From 21 Nov"] })} tone="red" />
 
       <section className="section">
         <div className="wrap">

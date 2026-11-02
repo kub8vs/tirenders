@@ -84,6 +84,16 @@
 .rc-state { padding: 12px 14px; border-radius: 12px; font-size: 15px; }
 .rc-state.ok { background: rgba(61, 220, 132, .14); color: #9ff0c0; }
 .rc-state.bad { background: rgba(255, 42, 42, .12); color: #ff9a9a; }
+.rc-price { display: grid; gap: 8px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); font-size: 14.5px; }
+.rc-price-row { display: grid; gap: 8px; }
+.rc-price-row b { font-weight: 500; }
+.rc-price-row b.up { color: #ffe08a; }
+.rc-price-row b.down { color: #9ff0c0; }
+.rc-price-row small { color: var(--muted); }
+.rc-price-form { display: grid; gap: 10px; }
+.rc-price-form label { display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
+.link-btn { justify-self: start; background: none; border: 0; padding: 0; color: #fff; text-decoration: underline; font: inherit; font-size: 13.5px; cursor: pointer; }
+.btn-ghost.danger { color: #ff9a9a; border-color: rgba(255, 42, 42, .45); }
 .rc-state.info { background: rgba(255, 200, 0, .1); color: #ffe08a; }
 
 /* Serwis stanowisk */
