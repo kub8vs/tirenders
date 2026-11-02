@@ -3,10 +3,10 @@
 const pl = {
   meta: {
     title: "Tirenders × 2Real Simracing · Warszawa",
-    description: "Pierwszy w Polsce salon sim racingu w prawdziwych karoseriach aut. 7 stanowisk, platformy ruchu 5DOF i 6DOF. Warszawa, od 15.11.",
+    description: "Pierwszy w Polsce salon sim racingu w prawdziwych karoseriach aut. 7 stanowisk, platformy ruchu 5DOF i 6DOF. Warszawa, od 21.11.",
   },
   nav: { offer: "Oferta", pricing: "Cennik", booking: "Rezerwacja", shop: "Sklep", about: "O nas", faq: "FAQ" },
-  pill: { status: "Otwarcie 15.11", city: "Warszawa" },
+  pill: { status: "Otwarcie 21.11", city: "Warszawa" },
   account: { signIn: "Zaloguj się", account: "Twoje konto" },
   hero: {
     srTitle: "Tirenders × 2Real Simracing – sim racing w prawdziwych karoseriach, Warszawa",
@@ -16,7 +16,7 @@ const pl = {
       ["S3", "3", "karoserie", "Prawdziwe BMW M4 F82, BMW E46 i Nissan 370Z"],
     ],
     tagline: "Prawdziwe auto. Prawdziwy ruch. *Ty prowadzisz.*",
-    taglineMeta: ["Warszawa", "Otwarcie 15.11", "7 stanowisk"],
+    taglineMeta: ["Warszawa", "Otwarcie 21.11", "7 stanowisk"],
     cta: "Zarezerwuj jazdę",
     ctaSub: "od 49 zł · 15 min",
     cta2: "Zobacz stanowiska",
@@ -58,7 +58,7 @@ const pl = {
     shopLead: "Kierownice z *prawdziwych aut*. Najpierw testujesz u nas, potem kupujesz. Na otwarciu także *merch Himery.*",
     shopCta: "Zobacz sklep",
     finalTitle: "Pierwszy taki *pit lane* w Polsce.",
-    finalLead: "Warszawa, od 15.11. *Umów swoją jazdę*, zanim zrobią to inni.",
+    finalLead: "Warszawa, od 21.11. *Umów swoją jazdę*, zanim zrobią to inni.",
   },
   footer: {
     rights: "Wszystkie prawa zastrzeżone.",
@@ -76,10 +76,10 @@ type Dict = typeof pl;
 const en: Dict = {
   meta: {
     title: "Tirenders × 2Real Simracing · Warsaw",
-    description: "Poland's first sim racing venue built inside real car bodies. 7 rigs, 5DOF and 6DOF motion platforms. Warsaw, from 15 Nov.",
+    description: "Poland's first sim racing venue built inside real car bodies. 7 rigs, 5DOF and 6DOF motion platforms. Warsaw, from 21 Nov.",
   },
   nav: { offer: "Offer", pricing: "Pricing", booking: "Book", shop: "Shop", about: "About", faq: "FAQ" },
-  pill: { status: "Opening 15 Nov", city: "Warsaw" },
+  pill: { status: "Opening 21 Nov", city: "Warsaw" },
   account: { signIn: "Sign in", account: "Your account" },
   hero: {
     srTitle: "Tirenders × 2Real Simracing – sim racing inside real car bodies, Warsaw",
@@ -89,7 +89,7 @@ const en: Dict = {
       ["S3", "3", "car bodies", "A real BMW M4 F82, BMW E46 and Nissan 370Z"],
     ],
     tagline: "A real car. Real motion. *You drive.*",
-    taglineMeta: ["Warsaw", "Opening 15 Nov", "7 rigs"],
+    taglineMeta: ["Warsaw", "Opening 21 Nov", "7 rigs"],
     cta: "Book a drive",
     ctaSub: "from 49 zł · 15 min",
     cta2: "See the rigs",
@@ -131,7 +131,7 @@ const en: Dict = {
     shopLead: "Wheels made from *real car wheels*. Try them here first, then buy. At the opening, *Himera merch* too.",
     shopCta: "See the shop",
     finalTitle: "Poland's first *pit lane* of its kind.",
-    finalLead: "Warsaw, from 15 Nov. *Book your drive* before someone else does.",
+    finalLead: "Warsaw, from 21 Nov. *Book your drive* before someone else does.",
   },
   footer: {
     rights: "All rights reserved.",

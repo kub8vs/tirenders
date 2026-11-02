@@ -31,7 +31,7 @@ const T = {
     groupDisc: "Rabat grupowy",
     codeWeaker: "Kod działa, ale rabat grupowy jest większy, więc liczymy grupowy.",
     rigs: "Stanowiska",
-    pickTime: "Najpierw wybierz godzinę: pokażemy, co jest wtedy wolne.",
+    pickTime: "Kliknij jedno albo kilka stanowisk (od 3 taniej). Niżej pokażemy godziny, kiedy są wolne.",
     step5: "Twoje dane",
     firstName: "Imię",
     lastName: "Nazwisko",
@@ -48,7 +48,8 @@ const T = {
     pay: "Przejdź do płatności",
     paying: "Łączę z płatnością…",
     hold: "Po kliknięciu trzymamy ten termin 10 minut, aż zapłacisz.",
-    methods: "BLIK · karta · Apple Pay · Google Pay",
+    methods: "Płatność obsługuje Tpay.",
+    method: "Jak płacisz?",
     total: "Do zapłaty",
     discount: "Rabat",
     taken: "Ktoś był szybszy i zajął ten termin. Wybierz inną godzinę albo stanowisko.",
@@ -83,7 +84,7 @@ const T = {
     groupDisc: "Group discount",
     codeWeaker: "The code works, but the group discount is bigger, so we use that.",
     rigs: "Rigs",
-    pickTime: "Pick a time first: we'll show what's free then.",
+    pickTime: "Tap one or more rigs (3+ is cheaper). Below we'll show when they're free.",
     step5: "Your details",
     firstName: "First name",
     lastName: "Last name",
@@ -100,7 +101,8 @@ const T = {
     pay: "Continue to payment",
     paying: "Connecting to payment…",
     hold: "Once you click, we hold this slot for 10 minutes while you pay.",
-    methods: "BLIK · card · Apple Pay · Google Pay",
+    methods: "Payments handled by Tpay.",
+    method: "How do you pay?",
     total: "Total",
     discount: "Discount",
     taken: "Someone was faster and took this slot. Pick another time or rig.",
@@ -141,6 +143,9 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
   const [form, setForm] = useState({ first: splitName(prefill?.name).first, last: splitName(prefill?.name).last, email: prefill?.email ?? "", phone: prefill?.phone ?? "", code: "", terms: false });
   const [quote, setQuote] = useState<{ list: number; discount: number; total: number; codeValid: boolean | null; codeApplied: boolean; groupPercent: number } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [method, setMethod] = useState<"blik" | "card" | "gpay" | "apay">("blik");
+  const [applePay, setApplePay] = useState(false);
+  useEffect(() => setApplePay(typeof window !== "undefined" && "ApplePaySession" in window), []);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -196,7 +201,7 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
     if (!ready || busy || wholeSalon) return;
     setBusy(true);
     setError(null);
-    const body = JSON.stringify({ simulatorIds: sims, start, durationMin: duration, firstName: form.first, lastName: form.last, email: form.email, phone: form.phone, discountCode: quote?.codeApplied ? form.code : null, terms: true, lang });
+    const body = JSON.stringify({ simulatorIds: sims, start, durationMin: duration, firstName: form.first, lastName: form.last, email: form.email, phone: form.phone, discountCode: quote?.codeApplied ? form.code : null, terms: true, lang, method });
     // Przy tłumie (otwarcie) serwer może chwilowo odpowiedzieć „zajęty”: próbujemy jeszcze dwa razy, w losowym odstępie.
     let res: Response | null = null;
     let d: { error?: string; checkoutUrl?: string } = {};
@@ -250,6 +255,42 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
         <section className="bk-step">
           <h2>
             <span>02</span>
+            {t.step4}
+          </h2>
+          {!sims.length && <p className="hint">{t.pickTime}</p>}
+          <div className={`promo ${pct ? "on" : ""}`}>
+            <div className="promo-head">
+              <b>{t.promoTitle}</b>
+              <span>{t.promoLead}</span>
+            </div>
+            <ol className="promo-tiers">
+              {[GROUP_DISCOUNTS[0].percent, GROUP_DISCOUNTS[1].percent, WHOLE_SALON_PERCENT].map((p, i) => (
+                <li key={p} className={pct >= p ? "hit" : ""}>
+                  <b>−{p}%</b>
+                  <span>{t.promoTiers[i]}</span>
+                </li>
+              ))}
+            </ol>
+            <p className="promo-state">
+              {pct ? t.promoOn(pct) : ""} {nextTier && sims.length > 0 ? t.promoNext(nextTier.min - sims.length, nextTier.percent) : ""}
+            </p>
+            {slot && sims.length > 1 && (
+              <div className="promo-actions">
+                <button type="button" className="btn-ghost" onClick={() => setSims([])}>
+                  {t.clear}
+                </button>
+              </div>
+            )}
+          </div>
+          <div className="bk-plan">
+            <SalonPlan free={slot ? slot.free : null} selected={sims} onSelect={toggleSim} price={price} lang={lang} />
+          </div>
+          {picked.length === 1 && <p className="hint" style={{ marginTop: 14 }}>{picked[0].body[lang]}</p>}
+        </section>
+
+        <section className="bk-step">
+          <h2>
+            <span>03</span>
             {t.step2}
           </h2>
           <div className="days" role="radiogroup" aria-label={t.step2}>
@@ -280,6 +321,7 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
                     aria-checked={start === x.start}
                     key={x.start}
                     className={`time ${start === x.start ? "on" : ""} ${off ? "dim" : ""}`}
+                    disabled={off}
                     onClick={() => setStart(x.start)}
                     title={off ? (lang === "pl" ? "Wybrane stanowisko jest wtedy zajęte" : "Your rig is taken then") : `${x.free.length}`}
                   >
@@ -290,42 +332,6 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
               })}
             </div>
           )}
-        </section>
-
-        <section className="bk-step">
-          <h2>
-            <span>03</span>
-            {t.step4}
-          </h2>
-          {!slot && <p className="hint">{t.pickTime}</p>}
-          <div className={`promo ${pct ? "on" : ""}`}>
-            <div className="promo-head">
-              <b>{t.promoTitle}</b>
-              <span>{t.promoLead}</span>
-            </div>
-            <ol className="promo-tiers">
-              {[GROUP_DISCOUNTS[0].percent, GROUP_DISCOUNTS[1].percent, WHOLE_SALON_PERCENT].map((p, i) => (
-                <li key={p} className={pct >= p ? "hit" : ""}>
-                  <b>−{p}%</b>
-                  <span>{t.promoTiers[i]}</span>
-                </li>
-              ))}
-            </ol>
-            <p className="promo-state">
-              {pct ? t.promoOn(pct) : ""} {nextTier && sims.length > 0 ? t.promoNext(nextTier.min - sims.length, nextTier.percent) : ""}
-            </p>
-            {slot && sims.length > 1 && (
-              <div className="promo-actions">
-                <button type="button" className="btn-ghost" onClick={() => setSims([])}>
-                  {t.clear}
-                </button>
-              </div>
-            )}
-          </div>
-          <div className="bk-plan">
-            <SalonPlan free={slot ? slot.free : null} selected={sims} onSelect={toggleSim} price={price} lang={lang} />
-          </div>
-          {picked.length === 1 && <p className="hint" style={{ marginTop: 14 }}>{picked[0].body[lang]}</p>}
         </section>
 
         <section className="bk-step">
@@ -428,9 +434,18 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
               )}
             </div>
           ) : (
+            <>
+              <div className="pay-methods" role="radiogroup" aria-label={t.method}>
+                {([["blik", "BLIK"], ["card", lang === "pl" ? "Karta" : "Card"], ["gpay", "Google Pay"], ...(applePay ? [["apay", "Apple Pay"]] : [])] as [typeof method, string][]).map(([k, label]) => (
+                  <button type="button" role="radio" aria-checked={method === k} key={k} className={`opt ${method === k ? "on" : ""}`} onClick={() => setMethod(k)}>
+                    {label}
+                  </button>
+                ))}
+              </div>
             <button type="submit" className="btn-white" style={{ width: "100%", height: 58 }} disabled={!ready || busy}>
               {busy ? t.paying : t.pay}
             </button>
+            </>
           )}
           <p className="hint" style={{ fontSize: 12.5 }}>{t.hold}</p>
           <p className="hint" style={{ fontSize: 12.5 }}>{t.methods}</p>
@@ -445,6 +460,7 @@ export default function BookingFlow({ lang, prefill, initialSim, signedIn }: { l
         .bk-main { display: grid; gap: 48px; min-width: 0; grid-template-columns: minmax(0, 1fr); }
         .bk-step { min-width: 0; }
         .bk-plan { max-width: 560px; }
+        .pay-methods { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
         .bk-step h2 { font-size: clamp(24px, 2.4vw, 34px); display: flex; gap: 16px; align-items: baseline; margin-bottom: 22px; }
         .bk-step h2 span { font-size: 12px; letter-spacing: .2em; color: var(--muted); }
         .chips { display: flex; flex-wrap: wrap; gap: 8px; }

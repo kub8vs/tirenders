@@ -1,10 +1,9 @@
 import { Prisma, type Booking } from "@prisma/client";
-import type Stripe from "stripe";
 import { BOOKING, SITE, simById } from "@/config/site";
 import { isFree, validStart } from "./availability";
 import { prisma } from "./db";
 import { sendEmail, sendSms } from "./notify";
-import { createCheckout, expireCheckout, refund, stripe } from "./payments";
+import { createCheckout, expireCheckout, paymentStatus, refund, type PayMethod } from "./payments";
 import { quote } from "./pricing";
 import { serviceBlocks, services } from "./sims";
 import { cancelledEmail, confirmationEmail, confirmationSms, rescheduledEmail, staffEmail } from "./templates";
@@ -61,6 +60,7 @@ export type NewBooking = {
   note?: string;
   markPaid?: boolean; // tylko panel obsługi
   payLink?: boolean; // tylko panel obsługi: klient płaci linkiem z SMS-a, termin czeka do BOOKING.payLinkHours
+  method?: PayMethod; // metoda wybrana na stronie (BLIK, karta, Google Pay, Apple Pay)
 };
 
 /** Do kiedy rezerwacja telefoniczna czeka na zapłatę: payLinkHours, ale najpóźniej 15 min przed startem. */
@@ -137,15 +137,15 @@ export async function createBooking(input: NewBooking) {
     for (const b of bookings) await afterPaid(b);
     return { booking, bookings, checkoutUrl: null };
   }
-  const checkout = await createCheckout(bookings, holdUntil);
-  if (checkout.ref) await prisma.booking.updateMany({ where: { id: { in: bookings.map((b) => b.id) } }, data: { paymentRef: checkout.ref } });
+  const checkout = await createCheckout(bookings, input.method);
+  if (checkout.ref) await prisma.booking.updateMany({ where: { id: { in: bookings.map((b) => b.id) } }, data: { paymentProvider: "tpay", paymentRef: checkout.ref, paymentUrl: checkout.url } });
   return { booking, bookings, checkoutUrl: checkout.url };
 }
 
 /** Czy ta rezerwacja dostaje SMS-y (w grupie tylko pierwsza, żeby nie wysyłać kilku na ten sam numer). */
 export const smsLead = (b: Booking) => !b.groupId || b.groupId === b.code;
 
-/** Wywoływane przez webhook Stripe albo bramkę testową. Idempotentne. */
+/** Wywoływane przez powiadomienie Tpay albo bramkę testową. Idempotentne. */
 export async function markPaid(bookingId: string, ref: { provider: string; ref?: string; method?: string }) {
   const first = await prisma.booking.findUnique({ where: { id: bookingId } });
   if (!first?.groupId) return markOnePaid(bookingId, ref);
@@ -158,15 +158,12 @@ export async function markPaid(bookingId: string, ref: { provider: string; ref?:
   return out;
 }
 
-/** Zapasowe potwierdzenie płatności po powrocie ze Stripe (gdy webhook się spóźnia albo nie dociera). */
-export async function syncStripePayment(b: Booking) {
-  const s = stripe();
-  if (!s || !b.paymentRef || !["PENDING", "EXPIRED"].includes(b.status)) return b;
-  const session = await s.checkout.sessions.retrieve(b.paymentRef, { expand: ["payment_intent.payment_method"] }).catch(() => null);
-  if (!session || session.payment_status !== "paid") return b;
-  const pi = session.payment_intent as Stripe.PaymentIntent | null;
-  const method = (pi?.payment_method as Stripe.PaymentMethod | null)?.type;
-  return (await markPaid(b.id, { provider: "stripe", ref: session.id, method })) ?? b;
+/** Zapasowe potwierdzenie płatności po powrocie z Tpay (gdy powiadomienie się spóźnia albo nie dociera). */
+export async function syncPayment(b: Booking) {
+  if (!b.paymentRef || !["PENDING", "EXPIRED"].includes(b.status)) return b;
+  const st = await paymentStatus(b.paymentRef);
+  if (!st?.paid) return b;
+  return (await markPaid(b.id, { provider: "tpay", ref: b.paymentRef, method: st.method })) ?? b;
 }
 
 async function markOnePaid(bookingId: string, ref: { provider: string; ref?: string; method?: string }) {
@@ -174,7 +171,7 @@ async function markOnePaid(bookingId: string, ref: { provider: string; ref?: str
   if (!b || (b.status !== "PENDING" && b.status !== "EXPIRED")) return b;
 
   const paidData = { paymentProvider: ref.provider, paymentRef: ref.ref ?? b.paymentRef, paymentMethod: ref.method ?? null, paidAt: new Date() };
-  // Zmiana statusu tylko z PENDING/EXPIRED: gdy Stripe wyśle to samo powiadomienie dwa razy naraz,
+  // Zmiana statusu tylko z PENDING/EXPIRED: gdy Tpay wyśle to samo powiadomienie dwa razy naraz,
   // tylko jedno przejdzie, więc klient dostanie jeden mail i jeden SMS.
   const claimable = { id: b.id, status: { in: ["PENDING", "EXPIRED"] } };
   let claimed: number;

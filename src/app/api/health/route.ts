@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { stripe } from "@/lib/payments";
+import { paymentsMode } from "@/lib/payments";
 
 export const dynamic = "force-dynamic";
 
@@ -26,23 +26,9 @@ async function configCheck() {
       maile: has("RESEND_API_KEY"),
       wlasciciel: has("OWNER_EMAILS"),
       sekretLogowania: has("AUTH_SECRET"),
-      platnosciStripe: has("STRIPE_SECRET_KEY") && has("STRIPE_WEBHOOK_SECRET"),
+      platnosciTpay: has("TPAY_CLIENT_ID") && has("TPAY_CLIENT_SECRET") && has("TPAY_SECURITY_CODE"),
       sms: has("SMSAPI_TOKEN"),
     },
-    stripe: await stripeInfo(),
-  };
-}
-
-// Które konto Stripe jest podpięte i czy to tryb testowy (bez kluczy, tylko id i nazwa konta).
-async function stripeInfo() {
-  const key = process.env.STRIPE_SECRET_KEY ?? "";
-  const s = stripe();
-  if (!s) return null;
-  const acct = await s.accounts.retrieve().catch(() => null);
-  return {
-    tryb: key.includes("_live_") ? "PRAWDZIWE PŁATNOŚCI" : key.includes("_test_") ? "testowy" : "nieznany",
-    konto: acct?.id ?? "brak dostępu",
-    nazwa: acct?.settings?.dashboard?.display_name || acct?.business_profile?.name || null,
-    webhook: !!process.env.STRIPE_WEBHOOK_SECRET,
+    platnosci: paymentsMode(),
   };
 }

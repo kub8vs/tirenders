@@ -19,6 +19,7 @@ const Body = z.object({
   discountCode: z.string().max(40).optional().nullable(),
   terms: z.literal(true),
   lang: z.enum(["pl", "en"]).default("pl"),
+  method: z.enum(["blik", "card", "gpay", "apay"]).default("blik"),
 });
 
 export async function POST(req: Request) {
@@ -61,6 +62,7 @@ async function handle(req: Request) {
       discountCode: d.discountCode,
       userId: user?.id,
       locale: d.lang,
+      method: d.method,
     });
     return NextResponse.json({ id: booking.id, code: booking.code, holdExpiresAt: booking.holdExpiresAt, checkoutUrl });
   } catch (e) {

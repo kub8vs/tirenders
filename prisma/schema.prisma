@@ -70,9 +70,13 @@ model Booking {
   holdExpiresAt   DateTime?
   paymentProvider String?
   paymentRef      String?
+  paymentUrl      String? // strona płatności Tpay (link z SMS-a przy rezerwacji telefonicznej)
   paymentMethod   String?
   paidAt          DateTime?
   checkedInAt     DateTime?
+  // Korekta ceny na miejscu (recepcja): dopłata albo upust w groszach, z powodem. Rozliczana w salonie.
+  priceAdjust     Int       @default(0)
+  priceAdjustNote String?
   checkedInBy     String? // e-mail osoby z recepcji, która potwierdziła przyjście
   cancelledAt     DateTime?
   refundAmount    Int       @default(0)

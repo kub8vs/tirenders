@@ -11,7 +11,7 @@ const SLOGANS = [
   { img: "/img/foto/kokpit-symulator.webp", pl: ["Prawdziwe auto.", "Prawdziwe nerwy."], en: ["Real car.", "Real nerves."], tag: { pl: "BMW M4 F82", en: "BMW M4 F82" } },
   { img: "/img/foto/baltic-namiot-2.webp", pl: ["Zloty. Drift. Festiwale.", "Teraz własny pit lane."], en: ["Meets. Drift. Festivals.", "Now our own pit lane."], tag: { pl: "Baltic Drive Festival", en: "Baltic Drive Festival" } },
   { img: "/img/foto/ekipa-tirenders.webp", pl: ["Ekipa, która", "żyje motoryzacją."], en: ["A crew that", "lives for cars."], tag: { pl: "Tirenders", en: "Tirenders" } },
-  { img: "/img/foto/supra-nad-symulatorem.webp", pl: ["Warszawa. 15.11.", "Wpadaj."], en: ["Warsaw. 15 Nov.", "Come by."], tag: { pl: "2Real Simracing", en: "2Real Simracing" } },
+  { img: "/img/foto/supra-nad-symulatorem.webp", pl: ["Warszawa. 21.11.", "Wpadaj."], en: ["Warsaw. 21 Nov.", "Come by."], tag: { pl: "2Real Simracing", en: "2Real Simracing" } },
 ];
 
 const NUMBERS = [

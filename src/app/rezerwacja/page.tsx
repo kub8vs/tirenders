@@ -30,8 +30,8 @@ export default async function Page({ searchParams }: { searchParams: { sim?: str
         </p>
         <p className="sec-lead">
           {tr(l, {
-            pl: "Każde stanowisko rezerwujesz osobno: jedna osoba, jedna rezerwacja, jedna płatność. Jedziecie we dwóch? Zrób dwie rezerwacje na tę samą godzinę.",
-            en: "Each rig is booked on its own: one person, one booking, one payment. Coming with a mate? Make two bookings for the same time.",
+            pl: "Wybierz, ile jedziesz, potem stanowisko i godzinę. Jedziecie w kilka osób? Zaznacz kilka stanowisk: jedna płatność, a od 3 stanowisk taniej.",
+            en: "Choose how long you drive, then your rig and time. Coming as a group? Pick several rigs: one payment, and 3+ rigs are cheaper.",
           })}
         </p>
       </div>

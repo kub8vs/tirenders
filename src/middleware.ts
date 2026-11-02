@@ -30,12 +30,12 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // Pliki strony, zadania automatyczne, webhook Stripe i health działają zawsze.
-  matcher: ["/((?!_next/|_vercel/|img/|video/|icon\\.svg|favicon\\.ico|api/cron/|api/stripe/webhook|api/health).*)"],
+  // Pliki strony, zadania automatyczne, powiadomienia Tpay i health działają zawsze.
+  matcher: ["/((?!_next/|_vercel/|img/|video/|icon\\.svg|favicon\\.ico|api/cron/|api/tpay/notify|api/health).*)"],
 };
 
 const PAGE = `<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#000"><title>2Real Simracing · Otwarcie 14.11</title><link rel="icon" href="/icon.svg">
+<meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#000"><title>2Real Simracing · Otwarcie 21.11</title><link rel="icon" href="/icon.svg">
 <style>
 *{box-sizing:border-box;margin:0}html,body{height:100%;background:#000;color:#f4f4f2;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif}
 body{background:radial-gradient(ellipse 80% 55% at 50% 100%,rgba(255,42,42,.16),transparent 70%),#000}
@@ -59,10 +59,10 @@ main{min-height:100%;display:flex;flex-direction:column;align-items:center;justi
 <div class="u"><b id="m">--</b><small>min</small></div><div class="sep">:</div>
 <div class="u"><b id="s">--</b><small>sek</small></div>
 </div>
-<p class="when">Otwarcie <span>14.11.2026</span> · Warszawa<br>Rezerwacje wkrótce</p>
+<p class="when">Otwarcie <span>21.11.2026</span> · Warszawa<br>Rezerwacje wkrótce</p>
 </main>
 <script>
-var T=Date.parse("2026-11-14T10:00:00+01:00"),L=document.querySelectorAll(".lights i");
+var T=Date.parse("2026-11-21T10:00:00+01:00"),L=document.querySelectorAll(".lights i");
 function p(n){return n<10?"0"+n:""+n}
 function t(){var r=Math.max(0,T-Date.now()),x=Math.floor(r/1e3);
 document.getElementById("d").textContent=p(Math.floor(x/86400));document.getElementById("h").textContent=p(Math.floor(x%86400/3600));
