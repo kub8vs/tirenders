@@ -2,8 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 // Strona „Wkrótce” przed otwarciem: gdy COMING_SOON=1, na tirenders.pl obcy widzą tylko licznik.
 // Pełna strona do pokazywania działa w tym czasie pod 2realsimracing.vercel.app (bez indeksowania w Google).
-// Właściciel może też wejść na tirenders.pl raz przez ?podglad=PREVIEW_KEY i dostaje ciasteczko na 60 dni.
-const COOKIE = "podglad";
+// Na tirenders.pl licznik widzi każdy, także właściciel (stary dostęp przez ciasteczko „podglad” jest wyłączony).
 const GATED = (host: string) => host === "tirenders.pl" || host.endsWith(".tirenders.pl");
 
 export function middleware(req: NextRequest) {
@@ -16,17 +15,11 @@ export function middleware(req: NextRequest) {
   }
 
   const url = req.nextUrl;
-  if (url.searchParams.get(COOKIE) === key) {
-    url.searchParams.delete(COOKIE);
-    const res = NextResponse.redirect(url);
-    res.cookies.set(COOKIE, key, { httpOnly: true, secure: true, sameSite: "lax", maxAge: 60 * 60 * 24 * 60, path: "/" });
-    return res;
-  }
-  if (req.cookies.get(COOKIE)?.value === key) return NextResponse.next();
-
   const headers = { "X-Robots-Tag": "noindex, nofollow", "Cache-Control": "no-store" };
   if (url.pathname.startsWith("/api/")) return NextResponse.json({ error: "wkrotce" }, { status: 403, headers });
-  return new NextResponse(PAGE, { status: 200, headers: { ...headers, "Content-Type": "text/html; charset=utf-8" } });
+  const res = new NextResponse(PAGE, { status: 200, headers: { ...headers, "Content-Type": "text/html; charset=utf-8" } });
+  if (req.cookies.get("podglad")) res.cookies.delete("podglad");
+  return res;
 }
 
 export const config = {
